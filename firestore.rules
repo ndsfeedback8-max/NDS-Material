@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The app signs every visitor in anonymously (firebase.auth().signInAnonymously())
+    // before it touches Firestore, then layers its own username/password + admin/staff
+    // roles on top inside the data itself. So "signed in" is the right boundary here —
+    // it blocks anyone poking at the database without loading the app, while still
+    // letting the app's own kv_store reads/writes through.
+    match /kv_store/{docId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
