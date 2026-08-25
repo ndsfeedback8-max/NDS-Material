@@ -1,0 +1,3043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NDS Material — Material &amp; Garment Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#F4F4F5;
+  --surface:#FFFFFF;
+  --surface-alt:#ECECEE;
+  --kraft:#E4E4E7;
+  --ink:#18181B;
+  --ink-soft:#52525B;
+  --ink-faint:#9A9AA2;
+  --indigo:#232326;
+  --indigo-soft:#3F3F46;
+  --indigo-pale:#F4F4F5;
+  --amber:#DC2626;
+  --amber-soft:#FEE2E2;
+  --olive:#3F3F46;
+  --olive-pale:#ECECEE;
+  --rust:#B91C1C;
+  --rust-pale:#FDE4E4;
+  --line:#E4E4E7;
+  --line-soft:#EFEFF1;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(24,24,27,0.05), 0 6px 20px -8px rgba(24,24,27,0.14);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Roboto',-apple-system,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:'Roboto',sans-serif;font-weight:700;letter-spacing:-.01em;}
+.mono{font-family:'Roboto Mono',monospace;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:14px;}
+::selection{background:var(--amber-soft);}
+
+/* ---------- layout ---------- */
+#loader{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:9999;}
+#loader .loader-mark{width:52px;height:52px;display:flex;align-items:center;justify-content:center;animation:markPulse 1.5s ease-in-out infinite;}
+#loader .loader-mark svg{width:100%;height:100%;}
+@keyframes markPulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(0.86);opacity:.5;}}
+#loader .loader-bar{width:130px;height:3px;border-radius:999px;background:var(--line);overflow:hidden;position:relative;}
+#loader .loader-bar span{position:absolute;top:0;left:0;height:100%;width:36%;border-radius:999px;background:var(--amber);animation:loaderSlide 1.15s cubic-bezier(.4,0,.2,1) infinite;}
+@keyframes loaderSlide{0%{left:-36%;}100%{left:100%;}}
+#loader p{color:var(--ink-soft);font-size:13px;letter-spacing:.02em;display:flex;align-items:center;gap:2px;}
+#loader .dots span{opacity:0;animation:dotFade 1.4s infinite;}
+#loader .dots span:nth-child(1){animation-delay:0s;}
+#loader .dots span:nth-child(2){animation-delay:.2s;}
+#loader .dots span:nth-child(3){animation-delay:.4s;}
+@keyframes dotFade{0%,100%{opacity:0;}40%{opacity:1;}}
+
+/* ---------- auth screen ---------- */
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;z-index:9000;overflow-y:auto;}
+.auth-card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:30px 28px 26px;}
+.auth-brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px;text-align:center;}
+.auth-brand .mark{width:40px;height:40px;}
+.auth-brand .name{font-family:'Roboto',sans-serif;font-weight:600;font-size:20px;}
+.auth-brand .tag{font-size:11.5px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;}
+.auth-card h2{font-size:16px;margin:0 0 4px;}
+.auth-card .sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 18px;}
+.auth-card .field{margin-bottom:13px;}
+.auth-card .errbox{background:var(--rust-pale);color:var(--rust);font-size:12.5px;padding:9px 11px;border-radius:7px;margin-bottom:13px;}
+.auth-card .btn{width:100%;justify-content:center;margin-top:4px;}
+.auth-foot{text-align:center;font-size:11.5px;color:var(--ink-faint);margin-top:16px;}
+.role-badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;padding:2px 7px;border-radius:999px;}
+.role-badge.admin{background:#FEE2E2;color:#B91C1C;}
+.role-badge.staff{background:rgba(255,255,255,0.14);color:#D4D4D8;}
+.sidebar-user{padding:13px 20px;border-top:1px solid rgba(255,255,255,0.08);}
+.sidebar-user .su-name{font-size:13px;font-weight:600;color:#fff;display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+.sidebar-user .su-logout{margin-top:9px;width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:#D4D4D8;border-radius:7px;padding:7px 10px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.sidebar-user .su-logout:hover{background:rgba(255,255,255,0.13);}
+
+#shell{display:flex;min-height:100vh;}
+#sidebar{
+  width:230px;flex:0 0 230px;background:var(--indigo);color:#F4F4F5;
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:22px 20px 16px;}
+.brand .mark{width:30px;height:30px;flex:none;}
+.brand .name{font-family:'Roboto',sans-serif;font-weight:600;font-size:17px;letter-spacing:.01em;}
+.brand .sub{font-size:10.5px;color:#A1A1AA;letter-spacing:.08em;text-transform:uppercase;margin-top:1px;}
+nav.navlist{display:flex;flex-direction:column;padding:8px 12px;gap:2px;flex:1;}
+nav.navlist .navitem{
+  display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;
+  color:#B4B4B8;font-size:13.5px;font-weight:500;text-decoration:none;border:none;background:none;width:100%;text-align:left;
+}
+nav.navlist .navitem svg{flex:none;opacity:.85;}
+nav.navlist .navitem:hover{background:rgba(255,255,255,0.06);color:#fff;}
+nav.navlist .navitem.active{background:rgba(255,255,255,0.12);color:#fff;}
+nav.navlist .navitem.active svg{opacity:1;}
+.sidebar-foot{padding:14px 20px 18px;font-size:11px;color:#8E8E93;border-top:1px solid rgba(255,255,255,0.08);}
+
+#main-wrap{flex:1;min-width:0;display:flex;flex-direction:column;}
+#topbar{
+  position:sticky;top:0;z-index:20;background:rgba(244,244,245,0.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+#topbar h1{font-size:21px;margin:0;font-weight:600;}
+#topbar .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);margin:0 0 2px;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);padding:7px 12px;border-radius:999px;font-size:12.5px;color:var(--ink-soft);}
+.chip strong{color:var(--ink);font-family:'Roboto Mono',monospace;font-weight:600;}
+#main-content{padding:24px 28px 60px;max-width:1320px;width:100%;}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:9px 15px;font-size:13.5px;font-weight:600;border:1px solid transparent;transition:filter .12s;white-space:nowrap;}
+.btn:hover{filter:brightness(0.96);}
+.btn-primary{background:var(--indigo);color:#fff;}
+.btn-amber{background:var(--amber);color:#fff;}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--ink);}
+.btn-ghost:hover{background:var(--surface-alt);}
+.btn-danger{background:var(--rust-pale);color:var(--rust);}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
+.btn[disabled]{opacity:.45;cursor:not-allowed;}
+.btn-icon{padding:7px;border-radius:7px;background:transparent;border:1px solid var(--line);color:var(--ink-soft);}
+.btn-icon:hover{background:var(--surface-alt);color:var(--ink);}
+
+/* ---------- cards / kpi ---------- */
+.grid{display:grid;gap:16px;}
+.kpi-row{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:20px;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+.kpi{padding:17px 18px;}
+.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600;}
+.kpi .value{font-family:'Roboto',sans-serif;font-size:26px;font-weight:600;margin-top:6px;}
+.kpi .sub{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+.kpi.warn .value{color:var(--rust);}
+.section{padding:20px 22px;margin-bottom:18px;}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.section-head h2{font-size:16px;margin:0;font-weight:600;}
+.section-head .hint{font-size:12px;color:var(--ink-faint);}
+
+/* ---------- tables ---------- */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);background:var(--surface-alt);padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap;font-weight:600;}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FAFAFA;}
+td.num,th.num{text-align:right;font-family:'Roboto Mono',monospace;}
+td .id{font-family:'Roboto Mono',monospace;font-weight:600;font-size:12.5px;color:var(--indigo);}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;}
+.badge-olive{background:var(--olive-pale);color:var(--olive);}
+.badge-rust{background:var(--rust-pale);color:var(--rust);}
+.badge-amber{background:var(--amber-soft);color:#B91C1C;}
+.badge-grey{background:var(--surface-alt);color:var(--ink-soft);}
+
+.empty{padding:46px 20px;text-align:center;color:var(--ink-soft);}
+.empty .e-icon{margin:0 auto 12px;opacity:.5;}
+.empty h3{margin:0 0 6px;font-size:15px;color:var(--ink);}
+.empty p{margin:0 0 16px;font-size:13px;}
+
+/* ---------- forms ---------- */
+form .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 18px;}
+form .form-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field.span2{grid-column:span 2;}
+.field label{font-size:12px;font-weight:600;color:var(--ink-soft);}
+.field .opt{font-weight:400;color:var(--ink-faint);}
+.field input,.field select,.field textarea{
+  border:1px solid var(--line);border-radius:7px;padding:9px 11px;background:var(--surface);color:var(--ink);width:100%;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--indigo-soft);outline-offset:1px;border-color:var(--indigo-soft);}
+.field textarea{resize:vertical;min-height:60px;}
+.field .readout{padding:9px 11px;background:var(--surface-alt);border-radius:7px;font-family:'Roboto Mono',monospace;font-weight:600;font-size:13.5px;border:1px solid var(--line);}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);}
+.inline-add{background:var(--indigo-pale);border:1px dashed #D4D4D8;border-radius:8px;padding:12px;margin-top:6px;}
+.roll-rows{display:flex;flex-direction:column;gap:8px;}
+.roll-row{display:grid;grid-template-columns:1fr 150px 34px;gap:10px;align-items:end;}
+.roll-row .btn-icon{align-self:center;}
+.roll-row .btn-icon[disabled]{opacity:.35;cursor:not-allowed;}
+.roll-rows-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px;flex-wrap:wrap;}
+@media (max-width:980px){.roll-row{grid-template-columns:1fr 100px 34px;}}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.filters input,.filters select{border:1px solid var(--line);border-radius:7px;padding:7px 11px;background:var(--surface);font-size:13px;}
+.helptext{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
+.errtext{font-size:11.5px;color:var(--rust);margin-top:2px;}
+
+/* ---------- modal ---------- */
+#modal-root{position:fixed;inset:0;z-index:1000;pointer-events:none;}
+#modal-root:empty{display:none;}
+.modal-overlay{position:fixed;inset:0;background:rgba(24,24,27,0.5);display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow-y:auto;pointer-events:auto;}
+.modal-panel{background:var(--surface);border-radius:14px;max-width:620px;width:100%;box-shadow:0 20px 60px -10px rgba(0,0,0,0.3);}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line);}
+.modal-head h3{margin:0;font-size:16px;}
+.modal-body{padding:20px 22px;}
+.modal-body.tight{padding:0;}
+
+/* ---------- tag (printable label) ---------- */
+.tag-wrap{display:flex;justify-content:center;padding:10px 0 4px;}
+.swing-tag{
+  width:300px;background:var(--kraft);border:1.5px solid #D4D4D8;border-radius:10px;padding:16px 16px 14px;position:relative;
+  font-family:'Roboto Mono',monospace;
+}
+.swing-tag::before{
+  content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;
+  background:var(--bg);border:1.5px solid #D4D4D8;
+}
+.swing-tag .t-store{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#71717A;text-align:center;margin-bottom:8px;}
+.swing-tag .t-qr{display:flex;justify-content:center;margin:6px 0 10px;}
+.swing-tag .t-qr svg,.swing-tag .t-qr img{width:150px;height:150px;}
+.swing-tag .t-id{text-align:center;font-weight:600;font-size:14px;letter-spacing:.02em;margin-bottom:10px;}
+.swing-tag .t-divider{border-top:1.5px dashed #D4D4D8;margin:8px 0;}
+.swing-tag .t-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;color:#27272A;}
+.swing-tag .t-row span:first-child{color:#9A9AA2;}
+
+/* ---------- dashboard bars ---------- */
+.bar-list{display:flex;flex-direction:column;gap:10px;}
+.bar-row{display:grid;grid-template-columns:120px 1fr 90px;align-items:center;gap:10px;font-size:12.5px;}
+.bar-row .bar-bg{background:var(--surface-alt);border-radius:6px;height:10px;overflow:hidden;}
+.bar-row .bar-fg{background:var(--amber);height:100%;border-radius:6px;}
+.bar-row .bar-name{color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-row .bar-val{font-family:'Roboto Mono',monospace;text-align:right;color:var(--ink);}
+
+.activity-list{display:flex;flex-direction:column;}
+.activity-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:13px;}
+.activity-row:last-child{border-bottom:none;}
+.activity-row .a-main{display:flex;flex-direction:column;gap:2px;}
+.activity-row .a-id{font-family:'Roboto Mono',monospace;font-size:11.5px;color:var(--ink-faint);}
+
+/* ---------- two-col layout ---------- */
+.two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+@media (max-width:980px){.two-col{grid-template-columns:1fr;} form .form-grid{grid-template-columns:1fr;} .field.span2{grid-column:span 1;}}
+
+/* ---------- toast ---------- */
+#toast-root{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:1100;pointer-events:none;}
+.toast{background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);max-width:320px;}
+.toast.err{background:var(--rust);}
+.toast.ok{background:var(--olive);}
+
+/* ---------- responsive ---------- */
+@media (max-width:860px){
+  #sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .2s;z-index:500;}
+  #sidebar.open{transform:translateX(0);}
+  #main-content{padding:18px 14px 50px;}
+  #topbar{padding:12px 14px;}
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+}
+.menu-toggle{display:none;background:none;border:1px solid var(--line);border-radius:7px;padding:7px;}
+@media (max-width:860px){.menu-toggle{display:inline-flex;}}
+
+/* ---------- print ---------- */
+#print-area{display:none;}
+@media print{
+  body *{visibility:hidden;}
+  #print-area, #print-area *{visibility:visible;}
+  #print-area{display:block !important;position:absolute;left:0;top:0;width:100%;}
+  .print-tag-page{display:flex;flex-wrap:wrap;gap:14px;padding:14px;}
+}
+
+/* ---------- scan screen (QR scan → focused batch view, separate from the full app shell) ---------- */
+#scan-screen{display:none;min-height:100vh;background:var(--bg);}
+.scan-topbar{
+  position:sticky;top:0;z-index:20;background:rgba(244,244,245,0.92);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.scan-eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);margin:0 0 2px;}
+.scan-title{font-size:21px;margin:0;font-weight:600;font-family:'Roboto',sans-serif;}
+.scan-user{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.scan-content{padding:24px 28px 60px;max-width:760px;width:100%;margin:0 auto;}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-mark"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#DC2626" stroke-width="2"/><path d="M16 4v24M6 9l20 14M26 9 6 23" stroke="#DC2626" stroke-width="1.3" opacity=".55"/><circle cx="16" cy="16" r="4.5" fill="#DC2626"/></svg></div>
+  <div class="loader-bar"><span></span></div>
+  <p>Loading NDS Material<span class="dots"><span>.</span><span>.</span><span>.</span></span></p>
+</div>
+
+<div id="auth-screen" style="display:none;"></div>
+
+<div id="shell" style="display:none;">
+  <aside id="sidebar"></aside>
+  <div id="main-wrap">
+    <header id="topbar"></header>
+    <main id="main-content"></main>
+  </div>
+</div>
+
+<div id="scan-screen" style="display:none;"></div>
+
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<div id="print-area"></div>
+
+<script>
+/* ============================================================
+   NDS MATERIAL — Material Receiving, Stock & Garment Issue Tracker
+   Single-file app. Data persisted via window.storage (shared).
+   ============================================================ */
+
+/* ---------- backend configuration ----------
+   Leave FIREBASE_CONFIG empty to keep using this browser's local storage
+   (per-device only). To share data across every device/computer, create a
+   Firebase project + Firestore database (see the setup guide), paste your
+   config below, and every visitor to this page reads/writes the same
+   shared cloud database — no server of your own required. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBGUOB5wDy11aEugYYDMkFrxseQ8lF9QhI",
+  authDomain: "nds-material-71ed7.firebaseapp.com",
+  projectId: "nds-material-71ed7",
+  storageBucket: "nds-material-71ed7.firebasestorage.app",
+  messagingSenderId: "466171131215",
+  appId: "1:466171131215:web:8fc45cf2787eb07399c13a"
+};
+
+/* ---------- storage shim ----------
+   Priority: window.storage (inside Claude.ai) > Firebase/Firestore (if
+   configured above) > localStorage (this browser only) > in-memory (this
+   tab only, until refresh). */
+const hasRealStorage = (typeof window.storage !== 'undefined' && window.storage);
+const hasFirebaseConfig = !hasRealStorage && !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
+let hasLocalStorage = false;
+try{ localStorage.setItem('__rt_test__','1'); localStorage.removeItem('__rt_test__'); hasLocalStorage = true; }catch(e){ hasLocalStorage = false; }
+const memoryStore = {};
+
+let firestoreDb = null;
+let firebaseInitPromise = null;
+function initFirebase(){
+  if(!hasFirebaseConfig || typeof firebase === 'undefined') return Promise.resolve(false);
+  if(firebaseInitPromise) return firebaseInitPromise;
+  firebaseInitPromise = (async()=>{
+    try{
+      firebase.initializeApp(FIREBASE_CONFIG);
+      firestoreDb = firebase.firestore();
+      await firebase.auth().signInAnonymously();
+      return true;
+    }catch(e){ console.error('Firebase init failed:', e); return false; }
+  })();
+  return firebaseInitPromise;
+}
+const firebaseStorageAPI = {
+  async _ready(){ const ok = await initFirebase(); if(!ok) throw new Error('Firebase is not configured or failed to initialize'); },
+  async get(key){
+    await this._ready();
+    const doc = await firestoreDb.collection('kv_store').doc(key).get();
+    if(!doc.exists) throw new Error('not found');
+    return {key, value: doc.data().v};
+  },
+  async set(key, value){
+    await this._ready();
+    await firestoreDb.collection('kv_store').doc(key).set({k:key, v:value, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    return {key, value};
+  },
+  async delete(key){
+    await this._ready();
+    await firestoreDb.collection('kv_store').doc(key).delete();
+    return {key, deleted:true};
+  },
+  async list(prefix){
+    await this._ready();
+    let q = firestoreDb.collection('kv_store');
+    if(prefix){ q = q.where('k','>=',prefix).where('k','<',prefix+'\uf8ff'); }
+    const snap = await q.get();
+    const keys = [];
+    snap.forEach(d=>keys.push(d.id));
+    return {keys};
+  }
+};
+const localStorageAPI = {
+  async get(key){ const v = localStorage.getItem(key); if(v===null) throw new Error('not found'); return {key, value:v}; },
+  async set(key, value){ localStorage.setItem(key, value); return {key, value}; },
+  async delete(key){ localStorage.removeItem(key); return {key, deleted:true}; },
+  async list(prefix){ const keys=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!prefix||k.startsWith(prefix)) keys.push(k); } return {keys}; }
+};
+const memoryStorageAPI = {
+  async get(key){ if(!(key in memoryStore)) throw new Error('not found'); return {key, value: memoryStore[key]}; },
+  async set(key, value){ memoryStore[key]=value; return {key, value}; },
+  async delete(key){ delete memoryStore[key]; return {key, deleted:true}; },
+  async list(prefix){ return {keys: Object.keys(memoryStore).filter(k=>!prefix||k.startsWith(prefix))}; }
+};
+const storageAPI = hasRealStorage ? window.storage : (hasFirebaseConfig ? firebaseStorageAPI : (hasLocalStorage ? localStorageAPI : memoryStorageAPI));
+function storageModeLabel(){
+  if(hasRealStorage) return 'Claude.ai shared storage';
+  if(hasFirebaseConfig) return 'Shared backend (Firebase / Firestore)';
+  if(hasLocalStorage) return 'This browser only (localStorage)';
+  return 'This tab only (resets on refresh)';
+}
+async function testBackendConnection(){
+  if(!hasFirebaseConfig){ toast('No backend configured — paste your Firebase config near the top of the script.', 'err'); return; }
+  try{ await firebaseStorageAPI.list(''); toast('Firebase connected ✓', 'ok'); }
+  catch(e){ toast('Firebase error: '+e.message, 'err'); }
+}
+
+/* ---------- app state ---------- */
+const APP = {
+  storeName: 'My Textile Store',
+  lowStockThreshold: 50,
+  nextBatchSeq: 1,
+  nextIssueSeq: 1,
+  adminCodeHash: null,
+  adminCodeSalt: null,
+  suppliers: [],
+  batches: [],
+  issues: [],
+  garments: [],
+  users: [],
+  currentUser: null,
+  route: 'dashboard',
+  loaded: false,
+  filters: { stockSearch:'', stockCategory:'', stockSupplier:'', stockSource:'', stockCountry:'', lowOnly:false,
+             repFrom:'', repTo:'', repCategories:null, repCountry:'',
+             invGroupBy:'supplier', invSearch:'', invCategory:'', invSupplier:'', invCountry:'' },
+  prefillBatchId: null,
+  scanMode: false,
+  scanBatchId: null
+};
+
+/* ---------- password hashing (dependency-free SHA-256 — works on http/file/sandboxed
+   contexts where crypto.subtle is unavailable; see security note in Settings) ---------- */
+function utf8Bytes(str){ return unescape(encodeURIComponent(str)); }
+function sha256Raw(ascii){
+  function rightRotate(value, amount){ return (value>>>amount) | (value<<(32-amount)); }
+  var mathPow = Math.pow, maxWord = mathPow(2,32), i, j, result = '';
+  var words = [];
+  var asciiBitLength = ascii.length*8;
+  var hash = sha256Raw.h = sha256Raw.h || [];
+  var k = sha256Raw.k = sha256Raw.k || [];
+  var primeCounter = k.length;
+  var isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) { isComposite[i] = candidate; }
+      hash[primeCounter] = (mathPow(candidate,.5)*maxWord)|0;
+      k[primeCounter++] = (mathPow(candidate,1/3)*maxWord)|0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length%64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii.length; i++) {
+    j = ascii.charCodeAt(i);
+    if (j>>8) return '';
+    words[i>>2] |= j << ((3-i)%4)*8;
+  }
+  words[words.length] = ((asciiBitLength/maxWord)|0);
+  words[words.length] = (asciiBitLength);
+  for (j = 0; j < words.length;) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash;
+    hash = hash.slice(0,8);
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i-15], w2 = w[i-2];
+      var a = hash[0], e = hash[4];
+      var temp1 = hash[7]
+        + (rightRotate(e,6) ^ rightRotate(e,11) ^ rightRotate(e,25))
+        + ((e&hash[5])^((~e)&hash[6]))
+        + k[i]
+        + (w[i] = (i<16) ? w[i] : (
+            w[i-16]
+            + (rightRotate(w15,7) ^ rightRotate(w15,18) ^ (w15>>>3))
+            + w[i-7]
+            + (rightRotate(w2,17) ^ rightRotate(w2,19) ^ (w2>>>10))
+          )|0
+        );
+      var temp2 = (rightRotate(a,2) ^ rightRotate(a,13) ^ rightRotate(a,22))
+        + ((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+      hash = [(temp1+temp2)|0].concat(hash);
+      hash[4] = (hash[4]+temp1)|0;
+    }
+    for (i = 0; i < 8; i++) { hash[i] = (hash[i]+oldHash[i])|0; }
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j+1; j--) {
+      var b = (hash[i]>>(j*8))&255;
+      result += ((b<16)?'0':'') + b.toString(16);
+    }
+  }
+  return result;
+}
+async function sha256Hex(text){ return sha256Raw(utf8Bytes(text)); }
+function randomSalt(){
+  if(window.crypto && window.crypto.getRandomValues){
+    const arr = new Uint8Array(16);
+    window.crypto.getRandomValues(arr);
+    return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  let s=''; for(let i=0;i<32;i++) s += Math.floor(Math.random()*16).toString(16);
+  return s;
+}
+async function hashPassword(password, salt){
+  return sha256Hex(salt + ':' + password);
+}
+
+const CATEGORIES = ['Cotton','Polyester','Viscose / Rayon','Denim','Knit / Jersey','Lace','Linen','Silk','Wool','Lining','Interlining','Trims & Accessories','Non-woven','Blended','Other'];
+const QUALITIES = ['Grade A','Grade B','Grade C','First Quality','Second Quality','Stock Lot','Premium','Standard'];
+const PURPOSES = ['Cutting','Sampling','Production','Other'];
+const COUNTRIES = ['Sri Lanka','India','China','Bangladesh','Pakistan','Vietnam','Indonesia','Thailand','Malaysia','Turkey','South Korea','Taiwan','Japan','Italy','United Kingdom','United States','Other'];
+function countryOptionsHTML(selected){
+  return '<option value="">— Select country —</option>'
+    + COUNTRIES.map(c=>`<option value="${c}" ${selected===c?'selected':''}>${c}</option>`).join('')
+    + `<option value="__other__" ${(selected && !COUNTRIES.includes(selected))?'selected':''}>Other (type below)…</option>`;
+}
+
+/* ---------- length scaling systems ---------- */
+const LENGTH_UNITS = [
+  {key:'m',  label:'Meters (m)',       toMeters:1},
+  {key:'yd', label:'Yards (yd)',       toMeters:0.9144},
+  {key:'ft', label:'Feet (ft)',        toMeters:0.3048},
+  {key:'in', label:'Inches (in)',      toMeters:0.0254},
+  {key:'cm', label:'Centimeters (cm)', toMeters:0.01}
+];
+function lengthUnitInfo(key){ return LENGTH_UNITS.find(u=>u.key===key) || LENGTH_UNITS[0]; }
+function toMeters(value, unitKey){ return (Number(value)||0) * lengthUnitInfo(unitKey).toMeters; }
+function fromMeters(meters, unitKey){ return (Number(meters)||0) / lengthUnitInfo(unitKey).toMeters; }
+function lengthUnitOptionsHTML(selected){
+  return LENGTH_UNITS.map(u=>`<option value="${u.key}" ${selected===u.key?'selected':''}>${u.label}</option>`).join('');
+}
+/* batch's recorded scale (defaults to meters for older records) */
+function batchUnit(b){ return (b && b.lengthUnit) || 'm'; }
+function fmtLengthTotal(b){
+  const unit = batchUnit(b);
+  const inUnit = fromMeters(b.totalLength||0, unit);
+  return unit==='m' ? (fmtNum(b.totalLength,1)+' m') : (fmtNum(inUnit,1)+' '+unit+' ('+fmtNum(b.totalLength,1)+' m)');
+}
+function fmtLengthRemaining(b){
+  const unit = batchUnit(b);
+  const inUnit = fromMeters(b.remainingMeters||0, unit);
+  return unit==='m' ? (fmtNum(b.remainingMeters,1)+' m') : (fmtNum(inUnit,1)+' '+unit+' ('+fmtNum(b.remainingMeters,1)+' m)');
+}
+function batchUnitPrice(b){
+  if(b.pricePerUnit!=null) return b.pricePerUnit;
+  return b.pricePerMeter||0;
+}
+function fmtUnitPrice(b){
+  return fmtMoney(batchUnitPrice(b)) + ' / ' + batchUnit(b);
+}
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function num(v){ const n=parseFloat(v); return isNaN(n)?0:n; }
+function fmtMoney(n){ return 'Rs. ' + (Number(n||0)).toLocaleString('en-LK',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtNum(n,dec){ dec=(dec==null?1:dec); return (Number(n||0)).toLocaleString('en-LK',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function fmtDate(d){ if(!d) return '—'; const dt=new Date(d+'T00:00:00'); if(isNaN(dt)) return d; return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function uid(prefix){ return prefix+'_'+Date.now().toString(36)+Math.floor(Math.random()*1000); }
+
+/* ---------- duplicate-entry guards ----------
+   Case/whitespace-insensitive matching used before creating suppliers,
+   garments, or users, so the same real-world record can't be added twice. */
+function norm(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function findDuplicateSupplier(name, excludeId){
+  const n = norm(name);
+  if(!n) return null;
+  return APP.suppliers.find(s=>s.id!==excludeId && norm(s.name)===n) || null;
+}
+function findDuplicateGarment(name, styleNo, excludeId){
+  const n = norm(name), sn = norm(styleNo);
+  if(!n) return null;
+  return APP.garments.find(g=>{
+    if(g.id===excludeId) return false;
+    if(sn) return norm(g.name)===n && norm(g.styleNo)===sn;
+    return norm(g.name)===n;
+  }) || null;
+}
+
+function toast(msg, type){
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type? ' '+type:'');
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2600);
+}
+
+function supplierName(id){ const s=APP.suppliers.find(x=>x.id===id); return s? s.name : '—'; }
+function garmentLabel(id){ const g=APP.garments.find(x=>x.id===id); return g? (g.styleNo? g.styleNo+' — '+g.name : g.name) : null; }
+function batchById(id){ return APP.batches.find(b=>b.id===id); }
+
+function stockValue(b){ return (b.remainingMeters||0) * (b.pricePerMeter||0); }
+function isLow(b){ return b.remainingMeters>0 && b.remainingMeters<=APP.lowStockThreshold; }
+function isOut(b){ return b.remainingMeters<=0; }
+function stockStatus(b){
+  if(isOut(b)) return {label:'Out of stock', cls:'badge-rust'};
+  if(isLow(b)) return {label:'Low stock', cls:'badge-amber'};
+  return {label:'In stock', cls:'badge-olive'};
+}
+
+/* ---------- persistence ---------- */
+async function loadAll(){
+  try{
+    const r = await storageAPI.get('rt_meta', true);
+    const m = JSON.parse(r.value);
+    APP.storeName = m.storeName || APP.storeName;
+    APP.lowStockThreshold = (m.lowStockThreshold!=null)? m.lowStockThreshold : APP.lowStockThreshold;
+    APP.nextBatchSeq = m.nextBatchSeq || 1;
+    APP.nextIssueSeq = m.nextIssueSeq || 1;
+    APP.adminCodeHash = m.adminCodeHash || null;
+    APP.adminCodeSalt = m.adminCodeSalt || null;
+  }catch(e){ /* first run */ }
+  for(const key of ['suppliers','batches','issues','garments','users']){
+    try{
+      const r = await storageAPI.get('rt_'+key, true);
+      APP[key] = JSON.parse(r.value) || [];
+    }catch(e){ APP[key] = []; }
+  }
+  APP.loaded = true;
+}
+async function saveMeta(){
+  try{
+    await storageAPI.set('rt_meta', JSON.stringify({
+      storeName:APP.storeName, lowStockThreshold:APP.lowStockThreshold,
+      nextBatchSeq:APP.nextBatchSeq, nextIssueSeq:APP.nextIssueSeq,
+      adminCodeHash:APP.adminCodeHash, adminCodeSalt:APP.adminCodeSalt
+    }), true);
+  }catch(e){ toast('Could not sync settings — saved locally only.', 'err'); }
+}
+async function saveCollection(key){
+  try{ await storageAPI.set('rt_'+key, JSON.stringify(APP[key]), true); }
+  catch(e){ toast('Could not sync '+key+' — saved locally only.', 'err'); }
+}
+
+/* ---------- session (personal, per-browser/account — not shared with other users) ---------- */
+async function saveSession(userId){
+  try{ await storageAPI.set('rt_session', JSON.stringify({userId}), false); }catch(e){ /* non-fatal */ }
+}
+async function clearSession(){
+  try{ await storageAPI.delete('rt_session', false); }catch(e){ /* non-fatal */ }
+}
+async function restoreSession(){
+  try{
+    const r = await storageAPI.get('rt_session', false);
+    const data = JSON.parse(r.value);
+    const u = APP.users.find(x=>x.id===data.userId && x.active);
+    if(u){ APP.currentUser = u; return true; }
+  }catch(e){ /* no session */ }
+  return false;
+}
+
+/* ============================================================
+   ICONS
+   ============================================================ */
+function icon(name, size){
+  size = size || 18;
+  const I = {
+    grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    inbox:'<path d="M3 12l2.2-7.2A2 2 0 0 1 7.1 3.4h9.8a2 2 0 0 1 1.9 1.4L21 12"/><path d="M3 12v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6h-5.2a1 1 0 0 0-.9.6 2.6 2.6 0 0 1-4.8 0 1 1 0 0 0-.9-.6H3z"/>',
+    layers:'<path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/><path d="m2 18 10 5 10-5"/>',
+    send:'<path d="M21 4 3 11l7 2.5L13 21l8-17Z"/><path d="m10.5 13.5 4-4"/>',
+    shirt:'<path d="M8 3 4 6l1.5 3L8 8v13h8V8l2.5 1L20 6l-4-3-2 2h-4L8 3Z"/>',
+    truck:'<path d="M3 16V7a1 1 0 0 1 1-1h9v10"/><path d="M13 9h4l3 3v4h-7"/><circle cx="7.5" cy="17.5" r="1.7"/><circle cx="16.5" cy="17.5" r="1.7"/>',
+    chart:'<path d="M4 20V10"/><path d="M11 20V4"/><path d="M18 20v-7"/><path d="M3 20h18"/>',
+    search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.3-4.3"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1h-.2a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.2 7.6a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3h.1A1.7 1.7 0 0 0 9.8 1.5V1.3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"/>',
+    trash:'<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+    printer:'<path d="M6 9V3h12v6"/><rect x="4" y="9" width="16" height="8" rx="1.5"/><path d="M6 17v4h12v-4"/>',
+    qr:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3z"/><path d="M19 14h2v2"/><path d="M14 19h2v2"/><path d="M19 19h2v2"/>',
+    close:'<path d="M18 6 6 18M6 6l12 12"/>',
+    download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+    boxstack:'<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+    arrowright:'<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>',
+    lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+    refresh:'<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>'
+  };
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(I[name]||'')+'</svg>';
+}
+
+/* ============================================================
+   ROUTER / SHELL
+   ============================================================ */
+const NAV = [
+  {id:'dashboard', label:'Dashboard', icon:'grid'},
+  {id:'receive', label:'Receive Material', icon:'inbox'},
+  {id:'stock', label:'Stock & Inventory', icon:'layers'},
+  {id:'inventory', label:'Inventory Summary', icon:'boxstack'},
+  {id:'issue', label:'Issue to Garments', icon:'send'},
+  {id:'garments', label:'Garments', icon:'shirt'},
+  {id:'suppliers', label:'Suppliers', icon:'truck'},
+  {id:'reports', label:'Reports', icon:'chart'},
+  {id:'lookup', label:'Track / Lookup', icon:'search'},
+  {id:'users', label:'Users', icon:'user', adminOnly:true},
+  {id:'settings', label:'Settings', icon:'gear'}
+];
+const PAGE_TITLE = {
+  dashboard:['Overview','Stock health at a glance'],
+  receive:['Receive Material','Log a new shipment and print roll tags'],
+  stock:['Stock & Inventory','Every batch currently on the shelf'],
+  inventory:['Inventory Summary','Total rolls, weight and value — sliced by supplier, design, material or GSM'],
+  issue:['Issue to Garments','Send material out for cutting or production'],
+  garments:['Garments','Styles you cut and the parties you make them for'],
+  suppliers:['Suppliers','Material vendors and garment buyers / makers'],
+  reports:['Reports','Receiving, usage, valuation and supplier summaries'],
+  lookup:['Track / Lookup','Scan a roll tag or search a batch ID'],
+  users:['Users','Admin-only — create and manage sign-in accounts'],
+  settings:['Settings','Store name and stock alert threshold']
+};
+
+function setRoute(route, opts){
+  const navItem = NAV.find(n=>n.id===route);
+  if(navItem && navItem.adminOnly && (!APP.currentUser || APP.currentUser.role!=='admin')){
+    toast('Only admins can access Users.', 'err');
+    route = 'dashboard';
+  }
+  APP.route = route;
+  APP.prefillBatchId = (opts && opts.batchId) || null;
+  renderShell();
+  window.scrollTo(0,0);
+  const sb = document.getElementById('sidebar');
+  if(sb) sb.classList.remove('open');
+}
+
+function renderShell(){
+  document.getElementById('shell').style.display='flex';
+  renderSidebar();
+  renderTopbar();
+  renderMain();
+}
+
+function renderSidebar(){
+  const visibleNav = NAV.filter(n=> !n.adminOnly || (APP.currentUser && APP.currentUser.role==='admin'));
+  const html = `
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#EF4444" stroke-width="2"/><path d="M16 4v24M6 9l20 14M26 9 6 23" stroke="#EF4444" stroke-width="1.3" opacity=".55"/><circle cx="16" cy="16" r="4.5" fill="#EF4444"/></svg>
+      <div><div class="name">NDS Material</div><div class="sub">${esc(APP.storeName)}</div></div>
+    </div>
+    <nav class="navlist">
+      ${visibleNav.map(n=>`<button class="navitem ${APP.route===n.id?'active':''}" onclick="setRoute('${n.id}')">${icon(n.icon,17)}<span>${n.label}</span></button>`).join('')}
+    </nav>
+    <div class="sidebar-user">
+      <div class="su-name">${icon('user',14)} ${esc(APP.currentUser.displayName)} <span class="role-badge ${APP.currentUser.role}">${APP.currentUser.role}</span></div>
+      <button class="su-logout" onclick="logout()">${icon('logout',13)} Sign out</button>
+    </div>
+    <div class="sidebar-foot">Shared store data · synced for everyone with this link.</div>
+  `;
+  document.getElementById('sidebar').innerHTML = html;
+}
+
+function renderTopbar(){
+  const [title, sub] = PAGE_TITLE[APP.route] || ['',''];
+  const totalValue = APP.batches.reduce((s,b)=>s+stockValue(b),0);
+  const lowCount = APP.batches.filter(isLow).length;
+  document.getElementById('topbar').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">${icon('menu',18)}</button>
+      <div><p class="eyebrow">${sub}</p><h1>${title}</h1></div>
+    </div>
+    <div class="topbar-right">
+      <div class="chip">${icon('layers',14)} Stock value <strong>${fmtMoney(totalValue)}</strong></div>
+      ${lowCount>0?`<div class="chip" style="border-color:#FCA5A5;color:#B91C1C;">${icon('boxstack',14)} <strong>${lowCount}</strong> low</div>`:''}
+      <button class="btn-icon" id="refresh-btn" title="Refresh data" onclick="refreshData()">${icon('refresh',16)}</button>
+      <button class="btn btn-amber" onclick="setRoute('receive')">${icon('plus',15)} Receive Material</button>
+    </div>
+  `;
+}
+
+function renderMain(){
+  const renderers = {
+    dashboard: renderDashboard, receive: renderReceivePage, stock: renderStockPage,
+    inventory: renderInventoryPage,
+    issue: renderIssuePage, garments: renderGarmentsPage, suppliers: renderSuppliersPage,
+    reports: renderReportsPage, lookup: renderLookupPage, users: renderUsersPage, settings: renderSettingsPage
+  };
+  document.getElementById('main-content').innerHTML = (renderers[APP.route]||renderDashboard)();
+  if(APP.route==='issue' && document.getElementById('if_batch') && document.getElementById('if_batch').value){
+    onIssueBatchChange();
+  }
+}
+async function refreshData(){
+  const btn = document.getElementById('refresh-btn');
+  if(btn){ btn.disabled = true; btn.querySelector('svg').style.animation = 'spin 0.7s linear infinite'; }
+  try{
+    await loadAll();
+    renderShell();
+    toast('Data refreshed.', 'ok');
+  }catch(e){
+    toast('Could not refresh data.', 'err');
+  }
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  const totalValue = APP.batches.reduce((s,b)=>s+stockValue(b),0);
+  const totalRolls = APP.batches.reduce((s,b)=>s+(b.remainingRolls||0),0);
+  const totalMeters = APP.batches.reduce((s,b)=>s+(b.remainingMeters||0),0);
+  const totalWeight = APP.batches.reduce((s,b)=>s+(b.remainingWeight||0),0);
+  const activeBatches = APP.batches.filter(b=>!isOut(b)).length;
+  const lowCount = APP.batches.filter(isLow).length;
+  const outCount = APP.batches.filter(isOut).length;
+
+  if(APP.batches.length===0){
+    return `
+    <div class="grid kpi-row">
+      ${kpiCard('Stock Value','Rs. 0.00','Nothing received yet')}
+      ${kpiCard('Rolls in Stock','0','—')}
+      ${kpiCard('Suppliers',APP.suppliers.length,'')}
+      ${kpiCard('Garment Styles',APP.garments.length,'')}
+    </div>
+    <div class="card empty">
+      ${emptyIcon('inbox')}
+      <h3>No material received yet</h3>
+      <p>Start by logging your first shipment — you'll get a printable QR roll tag right away.</p>
+      <button class="btn btn-primary" onclick="setRoute('receive')">${icon('plus',15)} Receive your first batch</button>
+    </div>`;
+  }
+
+  const byCat = {};
+  APP.batches.forEach(b=>{ byCat[b.category]=(byCat[b.category]||0)+stockValue(b); });
+  const catRows = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const maxCat = Math.max(1, ...catRows.map(r=>r[1]));
+
+  const recentBatches = [...APP.batches].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
+  const recentIssues = [...APP.issues].sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
+
+  return `
+  <div class="grid kpi-row">
+    ${kpiCard('Total Stock Value', fmtMoney(totalValue), activeBatches+' active batches')}
+    ${kpiCard('Rolls in Stock', fmtNum(totalRolls,0), fmtNum(totalMeters,1)+' m'+(totalWeight>0?' · '+fmtNum(totalWeight,1)+' kg':''))}
+    ${kpiCard('Low Stock', lowCount, outCount+' out of stock', lowCount>0)}
+    ${kpiCard('Suppliers', APP.suppliers.length, APP.garments.length+' garment styles')}
+  </div>
+  <div class="two-col">
+    <div class="card section">
+      <div class="section-head"><h2>Stock value by category</h2><span class="hint">remaining stock, current price</span></div>
+      <div class="bar-list">
+        ${catRows.map(([cat,val])=>`
+          <div class="bar-row">
+            <div class="bar-name">${esc(cat)}</div>
+            <div class="bar-bg"><div class="bar-fg" style="width:${Math.max(4,(val/maxCat*100))}%"></div></div>
+            <div class="bar-val">${fmtMoney(val)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card section">
+      <div class="section-head"><h2>Needs attention</h2></div>
+      ${lowCount+outCount===0 ? `<p class="hint" style="color:var(--ink-soft)">Everything is comfortably stocked.</p>` :
+        `<div class="activity-list">
+          ${APP.batches.filter(b=>isLow(b)||isOut(b)).slice(0,6).map(b=>{
+            const st = stockStatus(b);
+            return `<div class="activity-row">
+              <div class="a-main"><span>${esc(b.materialType)} · ${esc(b.color)}</span><span class="a-id">${b.id}</span></div>
+              <span class="badge ${st.cls}">${st.label}</span>
+            </div>`;
+          }).join('')}
+        </div>`}
+    </div>
+  </div>
+  <div class="two-col" style="margin-top:18px;">
+    <div class="card section">
+      <div class="section-head"><h2>Recent receipts</h2><button class="btn btn-ghost btn-sm" onclick="setRoute('stock')">View all ${icon('arrowright',13)}</button></div>
+      <div class="activity-list">
+        ${recentBatches.map(b=>`<div class="activity-row">
+          <div class="a-main"><span>${esc(b.materialType)} — ${esc(b.color)}</span><span class="a-id">${b.id} · ${fmtDate(b.date)}</span></div>
+          <span class="mono">${fmtMoney(b.totalCost)}</span>
+        </div>`).join('') || '<p class="hint">No receipts yet.</p>'}
+      </div>
+    </div>
+    <div class="card section">
+      <div class="section-head"><h2>Recent issues</h2><button class="btn btn-ghost btn-sm" onclick="setRoute('issue')">View all ${icon('arrowright',13)}</button></div>
+      <div class="activity-list">
+        ${recentIssues.map(i=>`<div class="activity-row">
+          <div class="a-main"><span>${esc(i.garmentName)} ${i.styleNo?'('+esc(i.styleNo)+')':''}</span><span class="a-id">${i.id} · ${fmtDate(i.date)}</span></div>
+          <span class="mono">${fmtNum(i.metersIssued,1)} m</span>
+        </div>`).join('') || '<p class="hint">No issues yet.</p>'}
+      </div>
+    </div>
+  </div>
+  `;
+}
+function kpiCard(label,value,sub,warn){
+  return `<div class="card kpi ${warn?'warn':''}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub||''}</div></div>`;
+}
+function emptyIcon(name){ return `<div class="e-icon">${icon(name,40)}</div>`; }
+
+/* ============================================================
+   RECEIVE MATERIAL
+   ============================================================ */
+function renderReceivePage(){
+  RF_PHOTO_DATAURL = null; RF_MATERIAL_GUESS = null;
+  RF_ROLLS = [{no:'', length:50}];
+  const materialSuppliers = APP.suppliers.filter(s=>s.type==='material'||s.type==='both');
+  const recent = [...APP.batches].sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+  return `
+  <div class="two-col">
+    <div class="card section">
+      <div class="section-head"><h2>New shipment</h2><span class="hint">One QR tag will be generated for the whole batch</span></div>
+      <form onsubmit="return handleReceiveSubmit(event)">
+        <div class="form-grid">
+          <div class="field"><label>Date received</label><input type="date" id="rf_date" value="${todayStr()}" required></div>
+          <div class="field"><label>Source</label>
+            <select id="rf_source"><option value="Local">Local</option><option value="Overseas">Overseas</option></select>
+          </div>
+          <div class="field"><label>Country of origin <span class="opt">(optional)</span></label>
+            <select id="rf_country" onchange="toggleCountryOther('rf')">${countryOptionsHTML('')}</select>
+            <input id="rf_country_other" placeholder="Type country name" style="margin-top:7px;display:none;">
+          </div>
+          <div class="field span2"><label>Supplier</label>
+            <select id="rf_supplier" onchange="toggleInlineAdd('rf')">
+              <option value="">— Select supplier —</option>
+              ${materialSuppliers.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+              <option value="__new__">+ Add new supplier…</option>
+            </select>
+            <div id="rf_new_supplier" class="inline-add" style="display:none;">
+              <div class="form-grid">
+                <div class="field"><label>Supplier name</label><input id="rf_ns_name" placeholder="e.g. ABC Textiles Pvt Ltd"></div>
+                <div class="field"><label>Phone</label><input id="rf_ns_phone" placeholder="07X XXX XXXX"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Material category</label>
+            <select id="rf_category">${CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Material type / name</label><input id="rf_type" placeholder="e.g. 100% Cotton Poplin" required></div>
+          <div class="field"><label>Color</label><input id="rf_color" placeholder="e.g. Navy Blue" required></div>
+          <div class="field"><label>Design / pattern</label><input id="rf_design" placeholder="e.g. Plain, Striped, Floral"></div>
+          <div class="field"><label>Design number <span class="opt">(optional)</span></label><input id="rf_designno" placeholder="e.g. DN-2026-014"></div>
+          <div class="field"><label>Quality / variety</label><input id="rf_quality" list="qualitylist" placeholder="e.g. Grade A"></div>
+          <datalist id="qualitylist">${QUALITIES.map(q=>`<option value="${q}">`).join('')}</datalist>
+          <div class="field"><label>GSM <span class="opt">(g/m², optional)</span></label><input type="number" min="0" step="1" id="rf_gsm" placeholder="e.g. 180"></div>
+          <div class="field"><label>Invoice / reference no. <span class="opt">(optional)</span></label><input id="rf_invoice" placeholder="INV-XXXX"></div>
+          <div class="field"><label>Length scale</label>
+            <select id="rf_lengthunit" onchange="recalcReceive()">${lengthUnitOptionsHTML('m')}</select>
+          </div>
+          <div class="field span2">
+            <label>Rolls received <span class="opt">— add each roll's number and length</span></label>
+            <div id="rf_rolls_wrap" class="roll-rows">${rollRowsHTML()}</div>
+            <div class="roll-rows-foot">
+              <button type="button" class="btn btn-ghost btn-sm" onclick="addRollRow()">${icon('plus',13)} Add another roll</button>
+              <span class="helptext">Leave a roll number blank to auto-label it "Roll 1", "Roll 2", etc.</span>
+            </div>
+          </div>
+          <div class="field"><label>Total rolls (auto)</label><div class="readout" id="rf_total_rolls">1</div></div>
+          <div class="field"><label>Total length (auto)</label><div class="readout" id="rf_total_len">50.0 m</div></div>
+          <div class="field span2">
+            <label>Pricing</label>
+            <div style="display:flex;gap:16px;font-size:13px;color:var(--ink-soft);margin-bottom:8px;">
+              <label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="rf_pricemode" value="perUnit" checked onchange="onPriceModeChange()"> Price per unit length</label>
+              <label style="display:flex;align-items:center;gap:6px;"><input type="radio" name="rf_pricemode" value="total" onchange="onPriceModeChange()"> Total price (calc. unit price)</label>
+            </div>
+          </div>
+          <div class="field" id="rf_perunit_wrap"><label>Price per <span id="rf_unit_label">m</span> (Rs.)</label><input type="number" min="0" step="0.01" id="rf_price" value="0" oninput="recalcReceive()" required></div>
+          <div class="field" id="rf_total_wrap" style="display:none;"><label>Total price (Rs.)</label><input type="number" min="0" step="0.01" id="rf_totalprice" value="0" oninput="recalcReceive()"></div>
+          <div class="field"><label>Total cost (auto)</label><div class="readout" id="rf_total_cost">Rs. 0.00</div></div>
+          <div class="field"><label>Unit price (auto)</label><div class="readout" id="rf_unit_price">Rs. 0.00 / m</div></div>
+          <div class="field"><label>Weight per roll (kg) <span class="opt">(optional)</span></label><input type="number" min="0" step="0.01" id="rf_weight" placeholder="e.g. 12.5" oninput="recalcReceive()"></div>
+          <div class="field"><label>Total weight (auto)</label><div class="readout" id="rf_total_weight">0.0 kg</div></div>
+          <div class="field span2">
+            <label>Material photo <span class="opt">(optional — used to help identify the material)</span></label>
+            <input type="file" accept="image/*" capture="environment" id="rf_photo" onchange="handlePhotoSelect(event)">
+            <div id="rf_photo_preview" style="margin-top:8px;"></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="rf_identify_btn" style="margin-top:8px;display:none;" onclick="identifyMaterialPhoto()">${icon('search',13)} Identify material from photo (AI)</button>
+            <div id="rf_identify_result" class="helptext" style="margin-top:6px;"></div>
+          </div>
+          <div class="field span2"><label>Notes <span class="opt">(optional)</span></label><textarea id="rf_notes" placeholder="Anything worth remembering about this shipment"></textarea></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" onclick="resetReceiveForm()">Clear</button>
+          <button type="submit" class="btn btn-primary">${icon('inbox',15)} Save &amp; generate tag</button>
+        </div>
+      </form>
+    </div>
+    <div class="card section">
+      <div class="section-head"><h2>Recently received</h2></div>
+      ${recent.length===0?`<p class="hint">Nothing logged yet.</p>`:`
+      <div class="activity-list">
+        ${recent.map(b=>`<div class="activity-row">
+          <div class="a-main"><span>${esc(b.materialType)} — ${esc(b.color)}</span><span class="a-id">${b.id} · ${fmtDate(b.date)}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="openPrintTag('${b.id}')">${icon('qr',13)} Tag</button>
+            ${(APP.currentUser && APP.currentUser.role==='admin') ? `
+            <button class="btn-icon" title="Edit GRN" onclick="openBatchEditModal('${b.id}')">${icon('edit',14)}</button>
+            <button class="btn-icon" title="Delete GRN" onclick="deleteBatch('${b.id}')">${icon('trash',14)}</button>` : ''}
+          </div>
+        </div>`).join('')}
+      </div>`}
+    </div>
+  </div>
+  `;
+}
+function toggleInlineAdd(prefix){
+  const sel = document.getElementById(prefix+'_supplier');
+  const box = document.getElementById(prefix+'_new_supplier');
+  box.style.display = (sel.value==='__new__') ? 'block' : 'none';
+}
+function toggleCountryOther(prefix){
+  const sel = document.getElementById(prefix+'_country');
+  const other = document.getElementById(prefix+'_country_other');
+  if(!sel || !other) return;
+  other.style.display = (sel.value==='__other__') ? 'block' : 'none';
+}
+function selectedCountryValue(prefix){
+  const sel = document.getElementById(prefix+'_country');
+  if(!sel) return '';
+  if(sel.value==='__other__'){
+    const other = document.getElementById(prefix+'_country_other');
+    return other ? other.value.trim() : '';
+  }
+  return sel.value;
+}
+function onPriceModeChange(){
+  const mode = document.querySelector('input[name="rf_pricemode"]:checked').value;
+  document.getElementById('rf_perunit_wrap').style.display = mode==='perUnit' ? 'block':'none';
+  document.getElementById('rf_total_wrap').style.display = mode==='total' ? 'block':'none';
+  document.getElementById('rf_price').required = (mode==='perUnit');
+  recalcReceive();
+}
+
+/* ---------- per-roll rows (roll number + length) for the Receive Material form ---------- */
+let RF_ROLLS = [{no:'', length:50}];
+function rollRowHTML(idx){
+  const r = RF_ROLLS[idx];
+  const canRemove = RF_ROLLS.length>1;
+  return `
+  <div class="roll-row">
+    <div class="field">${idx===0?'<label>Roll number <span class="opt">(optional)</span></label>':''}<input placeholder="e.g. R-${idx+1} or supplier's roll no." value="${esc(r.no)}" oninput="RF_ROLLS[${idx}].no=this.value;"></div>
+    <div class="field">${idx===0?'<label>Length</label>':''}<input type="number" min="0.01" step="0.01" value="${r.length}" oninput="RF_ROLLS[${idx}].length=num(this.value); recalcReceive();" required></div>
+    <button type="button" class="btn-icon" title="Remove this roll" ${canRemove?'':'disabled'} onclick="removeRollRow(${idx})">${icon('trash',14)}</button>
+  </div>`;
+}
+function rollRowsHTML(){
+  return RF_ROLLS.map((r,idx)=>rollRowHTML(idx)).join('');
+}
+function renderRollRows(){
+  const wrap = document.getElementById('rf_rolls_wrap');
+  if(wrap) wrap.innerHTML = rollRowsHTML();
+}
+function addRollRow(){
+  const last = RF_ROLLS[RF_ROLLS.length-1];
+  RF_ROLLS.push({no:'', length: last ? last.length : 50});
+  renderRollRows();
+  recalcReceive();
+}
+function removeRollRow(idx){
+  if(RF_ROLLS.length<=1) return;
+  RF_ROLLS.splice(idx,1);
+  renderRollRows();
+  recalcReceive();
+}
+function recalcReceive(){
+  const rolls = RF_ROLLS.length;
+  const unit = document.getElementById('rf_lengthunit').value;
+  const totalLenInUnit = RF_ROLLS.reduce((s,r)=>s+(num(r.length)||0),0);
+  const totalLenMeters = toMeters(totalLenInUnit, unit);
+  const weightPerRoll = num(document.getElementById('rf_weight').value);
+  const totalWeight = rolls*weightPerRoll;
+
+  const modeEl = document.querySelector('input[name="rf_pricemode"]:checked');
+  const mode = modeEl ? modeEl.value : 'perUnit';
+  let totalCost, unitPrice;
+  if(mode==='total'){
+    totalCost = num(document.getElementById('rf_totalprice').value);
+    unitPrice = totalLenInUnit>0 ? totalCost/totalLenInUnit : 0;
+  } else {
+    unitPrice = num(document.getElementById('rf_price').value);
+    totalCost = totalLenInUnit*unitPrice;
+  }
+
+  document.getElementById('rf_unit_label').textContent = unit;
+  document.getElementById('rf_total_rolls').textContent = fmtNum(rolls,0);
+  document.getElementById('rf_total_len').textContent = unit==='m'
+    ? (fmtNum(totalLenInUnit,1)+' m')
+    : (fmtNum(totalLenInUnit,1)+' '+unit+' ('+fmtNum(totalLenMeters,1)+' m)');
+  document.getElementById('rf_total_cost').textContent = fmtMoney(totalCost);
+  document.getElementById('rf_unit_price').textContent = fmtMoney(unitPrice)+' / '+unit;
+  document.getElementById('rf_total_weight').textContent = fmtNum(totalWeight,1)+' kg';
+}
+function resetReceiveForm(){ setRoute('receive'); }
+
+/* ---------- material photo upload + AI identification ---------- */
+let RF_PHOTO_DATAURL = null;
+let RF_MATERIAL_GUESS = null;
+function resizeImageDataUrl(dataUrl, maxDim, cb){
+  const img = new Image();
+  img.onload = function(){
+    let w = img.width, h = img.height;
+    if(w>maxDim || h>maxDim){
+      if(w>h){ h = Math.round(h*maxDim/w); w = maxDim; } else { w = Math.round(w*maxDim/h); h = maxDim; }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    cb(canvas.toDataURL('image/jpeg', 0.82));
+  };
+  img.onerror = function(){ cb(null); };
+  img.src = dataUrl;
+}
+function handlePhotoSelect(ev){
+  const file = ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    resizeImageDataUrl(reader.result, 900, function(resized){
+      if(!resized){ toast('Could not read that photo.','err'); return; }
+      RF_PHOTO_DATAURL = resized;
+      RF_MATERIAL_GUESS = null;
+      const prev = document.getElementById('rf_photo_preview');
+      if(prev) prev.innerHTML = `<img src="${resized}" style="max-width:160px;max-height:160px;border-radius:8px;border:1px solid var(--line);object-fit:cover;">`;
+      const btn = document.getElementById('rf_identify_btn');
+      if(btn) btn.style.display = 'inline-flex';
+      const rb = document.getElementById('rf_identify_result');
+      if(rb) rb.textContent = '';
+    });
+  };
+  reader.readAsDataURL(file);
+}
+async function identifyMaterialPhoto(){
+  if(!RF_PHOTO_DATAURL){ toast('Upload a photo first.','err'); return; }
+  const resultBox = document.getElementById('rf_identify_result');
+  resultBox.textContent = 'Analyzing photo…';
+  try{
+    const base64 = RF_PHOTO_DATAURL.split(',')[1];
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:300,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image', source:{type:'base64', media_type:'image/jpeg', data:base64}},
+            {type:'text', text:'You are looking at a photo of a fabric/textile roll or swatch in a garment factory stockroom. Identify the most likely fabric type/material (e.g. cotton, polyester, denim, knit jersey, lace, linen, silk, wool, non-woven, blended), and if visible, note color, weave/knit pattern, and approximate weight category (light/medium/heavy). Reply in 2-3 short plain-text lines, no preamble.'}
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const text = ((data && data.content) || []).map(c=>c.text||'').join('\n').trim();
+    if(text){
+      RF_MATERIAL_GUESS = text;
+      resultBox.innerHTML = '<strong>AI suggestion:</strong> '+esc(text).replace(/\n/g,'<br>');
+    } else {
+      resultBox.textContent = 'Could not get a suggestion — fill in the material fields manually.';
+    }
+  }catch(e){
+    resultBox.textContent = 'Material identification is unavailable right now — fill in the fields manually.';
+  }
+}
+
+async function handleReceiveSubmit(ev){
+  ev.preventDefault();
+  const supSel = document.getElementById('rf_supplier').value;
+  let supplierId = supSel;
+  if(supSel==='__new__'){
+    const name = document.getElementById('rf_ns_name').value.trim();
+    if(!name){ toast('Enter the new supplier name.','err'); return false; }
+    const existingSup = findDuplicateSupplier(name);
+    if(existingSup){
+      supplierId = existingSup.id;
+      toast('Using existing supplier "'+existingSup.name+'".', 'ok');
+    } else {
+      const sup = {id:uid('sup'), name, type:'material', contact:'', phone:document.getElementById('rf_ns_phone').value.trim(), email:'', address:'', country:'', notes:'', createdAt:Date.now()};
+      APP.suppliers.push(sup); await saveCollection('suppliers');
+      supplierId = sup.id;
+    }
+  }
+  if(!supplierId){ toast('Please select or add a supplier.','err'); return false; }
+
+  const unit = document.getElementById('rf_lengthunit').value;
+  const validRolls = RF_ROLLS.filter(r=>num(r.length)>0);
+  if(validRolls.length===0){ toast('Add at least one roll with a length greater than zero.','err'); return false; }
+  const rolls = validRolls.length;
+  const totalLenInUnit = validRolls.reduce((s,r)=>s+num(r.length),0);
+  const totalLenMeters = toMeters(totalLenInUnit, unit);
+  const mprMeters = rolls>0 ? totalLenMeters/rolls : 0;
+  const weightPerRoll = num(document.getElementById('rf_weight').value);
+  const totalWeight = rolls*weightPerRoll;
+  const rollDetails = validRolls.map((r,i)=>({
+    no: (r.no && r.no.trim()) ? r.no.trim() : ('Roll '+(i+1)),
+    lengthInUnit: num(r.length),
+    lengthMeters: toMeters(num(r.length), unit)
+  }));
+
+  const modeEl = document.querySelector('input[name="rf_pricemode"]:checked');
+  const mode = modeEl ? modeEl.value : 'perUnit';
+  let totalCost, unitPrice;
+  if(mode==='total'){
+    totalCost = num(document.getElementById('rf_totalprice').value);
+    unitPrice = totalLenInUnit>0 ? totalCost/totalLenInUnit : 0;
+  } else {
+    unitPrice = num(document.getElementById('rf_price').value);
+    totalCost = totalLenInUnit*unitPrice;
+  }
+  const pricePerMeter = totalLenMeters>0 ? totalCost/totalLenMeters : 0;
+
+  const year = new Date().getFullYear();
+  const id = 'GRN-'+year+'-'+String(APP.nextBatchSeq).padStart(4,'0');
+  APP.nextBatchSeq += 1;
+
+  const gsmVal = document.getElementById('rf_gsm').value.trim();
+  const batch = {
+    id, date: document.getElementById('rf_date').value || todayStr(),
+    source: document.getElementById('rf_source').value,
+    country: selectedCountryValue('rf'),
+    supplierId, category: document.getElementById('rf_category').value,
+    materialType: document.getElementById('rf_type').value.trim(),
+    color: document.getElementById('rf_color').value.trim(),
+    design: document.getElementById('rf_design').value.trim(),
+    designNo: document.getElementById('rf_designno').value.trim(),
+    quality: document.getElementById('rf_quality').value.trim(),
+    gsm: gsmVal ? num(gsmVal) : null,
+    invoiceNo: document.getElementById('rf_invoice').value.trim(),
+    lengthUnit: unit,
+    lengthPerRollInUnit: rolls>0 ? totalLenInUnit/rolls : 0,
+    totalLengthInUnit: totalLenInUnit,
+    totalRolls: rolls, meterPerRoll: mprMeters, totalLength: totalLenMeters,
+    rollDetails,
+    pricePerMeter, pricePerUnit: unitPrice, totalCost,
+    weightPerRoll, totalWeight, remainingWeight: totalWeight,
+    notes: document.getElementById('rf_notes').value.trim(),
+    photoDataUrl: RF_PHOTO_DATAURL || null,
+    materialGuess: RF_MATERIAL_GUESS || null,
+    remainingRolls: rolls, remainingMeters: totalLenMeters,
+    createdAt: Date.now()
+  };
+  RF_PHOTO_DATAURL = null; RF_MATERIAL_GUESS = null; RF_ROLLS = [{no:'', length:50}];
+  APP.batches.push(batch);
+  await saveCollection('batches');
+  await saveMeta();
+  toast('Batch '+id+' saved.', 'ok');
+  openPrintTag(id);
+  setRoute('stock');
+  return false;
+}
+
+/* ---------- edit / delete a GRN (admin only) ----------
+   Quantities (rolls/length) are intentionally left read-only here since
+   issued stock is tracked against them; only descriptive fields, price
+   and weight-per-roll can be corrected. */
+function openBatchEditModal(id){
+  if(!APP.currentUser || APP.currentUser.role!=='admin'){ toast('Only an admin can edit a GRN.','err'); return; }
+  const b = batchById(id);
+  if(!b){ toast('Batch not found.','err'); return; }
+  const materialSuppliers = APP.suppliers.filter(s=>s.type==='material'||s.type==='both');
+  const countryIsOther = b.country && !COUNTRIES.includes(b.country);
+  openModal(`
+    <div class="modal-head"><h3>Edit GRN — ${esc(b.id)}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <form onsubmit="return saveBatchEdit(event,'${id}')">
+        <div class="form-grid">
+          <div class="field"><label>Date received</label><input type="date" id="bm_date" value="${esc(b.date)}" required></div>
+          <div class="field"><label>Source</label>
+            <select id="bm_source"><option value="Local" ${b.source==='Local'?'selected':''}>Local</option><option value="Overseas" ${b.source==='Overseas'?'selected':''}>Overseas</option></select>
+          </div>
+          <div class="field"><label>Country of origin <span class="opt">(optional)</span></label>
+            <select id="bm_country" onchange="toggleCountryOther('bm')">${countryOptionsHTML(b.country||'')}</select>
+            <input id="bm_country_other" placeholder="Type country name" value="${countryIsOther?esc(b.country):''}" style="margin-top:7px;display:${countryIsOther?'block':'none'};">
+          </div>
+          <div class="field span2"><label>Supplier</label>
+            <select id="bm_supplier">${materialSuppliers.map(s=>`<option value="${esc(s.id)}" ${b.supplierId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Material category</label>
+            <select id="bm_category">${CATEGORIES.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${c}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Material type / name</label><input id="bm_type" value="${esc(b.materialType)}" required></div>
+          <div class="field"><label>Color</label><input id="bm_color" value="${esc(b.color)}" required></div>
+          <div class="field"><label>Design / pattern</label><input id="bm_design" value="${esc(b.design||'')}"></div>
+          <div class="field"><label>Design number <span class="opt">(optional)</span></label><input id="bm_designno" value="${esc(b.designNo||'')}"></div>
+          <div class="field"><label>Quality / variety</label><input id="bm_quality" list="qualitylist" value="${esc(b.quality||'')}"></div>
+          <datalist id="qualitylist">${QUALITIES.map(q=>`<option value="${q}">`).join('')}</datalist>
+          <div class="field"><label>GSM <span class="opt">(g/m², optional)</span></label><input type="number" min="0" step="1" id="bm_gsm" value="${b.gsm!=null?b.gsm:''}"></div>
+          <div class="field"><label>Invoice / reference no. <span class="opt">(optional)</span></label><input id="bm_invoice" value="${esc(b.invoiceNo||'')}"></div>
+          <div class="field"><label>Price per meter (Rs.)</label><input type="number" min="0" step="0.01" id="bm_price" value="${b.pricePerMeter}"></div>
+          <div class="field"><label>Weight per roll (kg) <span class="opt">(optional)</span></label><input type="number" min="0" step="0.01" id="bm_weight" value="${b.weightPerRoll||0}"></div>
+          <div class="field span2"><label>Notes <span class="opt">(optional)</span></label><textarea id="bm_notes">${esc(b.notes||'')}</textarea></div>
+        </div>
+        <p class="hint">Rolls (${fmtNum(b.totalRolls,0)}) and total length (${fmtLengthTotal(b)}) aren't editable here, to keep issued-stock records consistent. To correct quantities on a batch with no issues yet, delete this GRN and re-enter it.</p>
+        <div class="form-actions" style="justify-content:space-between;">
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteBatch('${id}')">${icon('trash',14)} Delete GRN</button>
+          <span style="display:flex;gap:10px;"><button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></span>
+        </div>
+      </form>
+    </div>
+  `);
+}
+async function saveBatchEdit(ev,id){
+  ev.preventDefault();
+  if(!APP.currentUser || APP.currentUser.role!=='admin'){ toast('Only an admin can edit a GRN.','err'); return false; }
+  const b = batchById(id);
+  if(!b){ toast('Batch not found.','err'); return false; }
+
+  const supplierId = document.getElementById('bm_supplier').value;
+  if(!supplierId){ toast('Please select a supplier.','err'); return false; }
+  const materialType = document.getElementById('bm_type').value.trim();
+  const color = document.getElementById('bm_color').value.trim();
+  if(!materialType || !color){ toast('Material type and color are required.','err'); return false; }
+
+  const unit = batchUnit(b);
+  const newPricePerMeter = num(document.getElementById('bm_price').value);
+  const newWeightPerRoll = num(document.getElementById('bm_weight').value);
+
+  // Recompute cost from the corrected per-meter price.
+  b.pricePerMeter = newPricePerMeter;
+  b.pricePerUnit = newPricePerMeter * lengthUnitInfo(unit).toMeters;
+  b.totalCost = newPricePerMeter * (b.totalLength||0);
+
+  // Recompute weight totals from the corrected per-roll weight, while
+  // preserving however much weight has already been issued out.
+  const oldTotalWeight = b.totalWeight||0;
+  const newTotalWeight = (b.totalRolls||0) * newWeightPerRoll;
+  const weightDelta = newTotalWeight - oldTotalWeight;
+  b.weightPerRoll = newWeightPerRoll;
+  b.totalWeight = newTotalWeight;
+  b.remainingWeight = Math.min(newTotalWeight, Math.max(0, (b.remainingWeight||0) + weightDelta));
+
+  const gsmVal = document.getElementById('bm_gsm').value.trim();
+  Object.assign(b, {
+    date: document.getElementById('bm_date').value || b.date,
+    source: document.getElementById('bm_source').value,
+    country: selectedCountryValue('bm'),
+    supplierId,
+    category: document.getElementById('bm_category').value,
+    materialType, color,
+    design: document.getElementById('bm_design').value.trim(),
+    designNo: document.getElementById('bm_designno').value.trim(),
+    quality: document.getElementById('bm_quality').value.trim(),
+    gsm: gsmVal ? num(gsmVal) : null,
+    invoiceNo: document.getElementById('bm_invoice').value.trim(),
+    notes: document.getElementById('bm_notes').value.trim()
+  });
+
+  await saveCollection('batches');
+  closeModal();
+  toast('GRN '+b.id+' updated.','ok');
+  renderMain();
+  return false;
+}
+async function deleteBatch(id){
+  if(!APP.currentUser || APP.currentUser.role!=='admin'){ toast('Only an admin can delete a GRN.','err'); return; }
+  const b = batchById(id);
+  if(!b){ toast('Batch not found.','err'); return; }
+  const linkedIssues = APP.issues.filter(i=>i.batchId===id);
+  if(linkedIssues.length>0){
+    toast('Delete the '+linkedIssues.length+' issue(s) linked to '+id+' first.','err');
+    return;
+  }
+  if(!confirm('Delete GRN '+id+' ('+b.materialType+' — '+b.color+')? This cannot be undone.')) return;
+  APP.batches = APP.batches.filter(x=>x.id!==id);
+  await saveCollection('batches');
+  closeModal();
+  toast('GRN '+id+' deleted.','ok');
+  setRoute('stock');
+}
+
+/* ============================================================
+   STOCK & INVENTORY
+   ============================================================ */
+function renderStockPage(){
+  const f = APP.filters;
+  let rows = APP.batches.slice();
+  if(f.stockSearch){
+    const q = f.stockSearch.toLowerCase();
+    rows = rows.filter(b => (b.id+' '+b.materialType+' '+b.color+' '+b.design+' '+(b.country||'')+' '+supplierName(b.supplierId)).toLowerCase().includes(q));
+  }
+  if(f.stockCategory) rows = rows.filter(b=>b.category===f.stockCategory);
+  if(f.stockSupplier) rows = rows.filter(b=>b.supplierId===f.stockSupplier);
+  if(f.stockSource) rows = rows.filter(b=>b.source===f.stockSource);
+  if(f.stockCountry) rows = rows.filter(b=>(b.country||'')===f.stockCountry);
+  if(f.lowOnly) rows = rows.filter(b=>isLow(b)||isOut(b));
+  rows.sort((a,b)=>b.createdAt-a.createdAt);
+
+  const matSuppliers = APP.suppliers.filter(s=>s.type==='material'||s.type==='both');
+  const usedCountries = [...new Set(APP.batches.map(b=>b.country).filter(Boolean))].sort();
+
+  return `
+  <div class="card section">
+    <div class="filters">
+      <input type="text" placeholder="Search material, color, supplier, batch ID…" style="min-width:240px;" value="${esc(f.stockSearch)}" oninput="APP.filters.stockSearch=this.value; renderMain();">
+      <select onchange="APP.filters.stockCategory=this.value; renderMain();">
+        <option value="">All categories</option>
+        ${CATEGORIES.map(c=>`<option value="${c}" ${f.stockCategory===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <select onchange="APP.filters.stockSupplier=this.value; renderMain();">
+        <option value="">All suppliers</option>
+        ${matSuppliers.map(s=>`<option value="${s.id}" ${f.stockSupplier===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+      </select>
+      <select onchange="APP.filters.stockSource=this.value; renderMain();">
+        <option value="">Local &amp; Overseas</option>
+        <option value="Local" ${f.stockSource==='Local'?'selected':''}>Local</option>
+        <option value="Overseas" ${f.stockSource==='Overseas'?'selected':''}>Overseas</option>
+      </select>
+      <select onchange="APP.filters.stockCountry=this.value; renderMain();">
+        <option value="">All countries</option>
+        ${usedCountries.map(c=>`<option value="${esc(c)}" ${f.stockCountry===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft);">
+        <input type="checkbox" ${f.lowOnly?'checked':''} onchange="APP.filters.lowOnly=this.checked; renderMain();"> Low / out of stock only
+      </label>
+    </div>
+    ${rows.length===0 ? emptyStockState() : `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Batch</th><th>Date</th><th>Material</th><th>Color / Design</th><th class="num">GSM</th><th>Supplier</th><th>Country</th>
+          <th class="num">Rolls</th><th class="num">Length</th><th class="num">Weight</th><th class="num">Unit price</th><th class="num">Stock value</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(b=>{
+            const st = stockStatus(b);
+            const unit = batchUnit(b);
+            return `<tr>
+              <td><span class="id">${b.id}</span><div class="hint" style="font-size:11px;">${esc(b.category)}</div></td>
+              <td>${fmtDate(b.date)}<div class="hint" style="font-size:11px;">${b.source}</div></td>
+              <td>${esc(b.materialType)}${b.quality?`<div class="hint" style="font-size:11px;">${esc(b.quality)}</div>`:''}</td>
+              <td>${esc(b.color)}${b.design?' · '+esc(b.design):''}${b.designNo?`<div class="hint" style="font-size:11px;">Design no. ${esc(b.designNo)}</div>`:''}</td>
+              <td class="num">${b.gsm!=null?fmtNum(b.gsm,0):'—'}</td>
+              <td>${esc(supplierName(b.supplierId))}</td>
+              <td>${b.country?esc(b.country):'<span class="hint">—</span>'}</td>
+              <td class="num">${fmtNum(b.remainingRolls,0)}<span style="color:var(--ink-faint)">/${fmtNum(b.totalRolls,0)}</span></td>
+              <td class="num">${fmtNum(fromMeters(b.remainingMeters,unit),1)}<span style="color:var(--ink-faint)">/${fmtNum(fromMeters(b.totalLength,unit),1)} ${unit}</span></td>
+              <td class="num">${b.totalWeight?fmtNum(b.remainingWeight,1)+'<span style="color:var(--ink-faint)">/'+fmtNum(b.totalWeight,1)+' kg</span>':'—'}</td>
+              <td class="num">${fmtMoney(batchUnitPrice(b))}<span style="color:var(--ink-faint)">/${unit}</span></td>
+              <td class="num">${fmtMoney(stockValue(b))}</td>
+              <td><span class="badge ${st.cls}">${st.label}</span></td>
+              <td>
+                <div style="display:flex;gap:5px;">
+                  <button class="btn-icon" title="Track / details" onclick="setRoute('lookup',{batchId:'${b.id}'})">${icon('search',15)}</button>
+                  <button class="btn-icon" title="Print tag" onclick="openPrintTag('${b.id}')">${icon('printer',15)}</button>
+                  <button class="btn-icon" title="Issue to garment" onclick="goIssueWithBatch('${b.id}')">${icon('send',15)}</button>
+                  ${(APP.currentUser && APP.currentUser.role==='admin') ? `
+                  <button class="btn-icon" title="Edit GRN" onclick="openBatchEditModal('${b.id}')">${icon('edit',15)}</button>
+                  <button class="btn-icon" title="Delete GRN" onclick="deleteBatch('${b.id}')">${icon('trash',15)}</button>` : ''}
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>
+  `;
+}
+function emptyStockState(){
+  return `<div class="empty">${emptyIcon('layers')}<h3>No batches match these filters</h3><p>Try clearing filters, or receive new material.</p>
+    <button class="btn btn-primary" onclick="Object.assign(APP.filters,{stockSearch:'',stockCategory:'',stockSupplier:'',stockSource:'',stockCountry:'',lowOnly:false}); setRoute('receive');">${icon('plus',15)} Receive material</button></div>`;
+}
+function goIssueWithBatch(batchId){ setRoute('issue',{batchId}); }
+
+/* ============================================================
+   INVENTORY SUMMARY — totals grouped by supplier / material / design / GSM
+   ============================================================ */
+const INV_GROUPS = {
+  supplier: {label:'Supplier', keyOf:b=>b.supplierId||'—', labelOf:b=>supplierName(b.supplierId)},
+  material: {label:'Material type', keyOf:b=>b.materialType||'—', labelOf:b=>b.materialType||'(Unspecified)'},
+  category: {label:'Category', keyOf:b=>b.category||'—', labelOf:b=>b.category||'(Unspecified)'},
+  country:  {label:'Country', keyOf:b=>b.country||'\u0000none', labelOf:b=>b.country||'(Unspecified)'},
+  design:   {label:'Design', keyOf:b=>b.design||'\u0000none', labelOf:b=>b.design||'(No design)'},
+  gsm:      {label:'GSM', keyOf:b=>(b.gsm!=null?String(b.gsm):'\u0000none'), labelOf:b=>(b.gsm!=null?fmtNum(b.gsm,0)+' g/m²':'(Not specified)')}
+};
+
+function renderInventoryPage(){
+  const f = APP.filters;
+  let rows = APP.batches.slice();
+  if(f.invSearch){
+    const q = f.invSearch.toLowerCase();
+    rows = rows.filter(b => (b.id+' '+b.materialType+' '+b.color+' '+b.design+' '+(b.country||'')+' '+supplierName(b.supplierId)).toLowerCase().includes(q));
+  }
+  if(f.invCategory) rows = rows.filter(b=>b.category===f.invCategory);
+  if(f.invSupplier) rows = rows.filter(b=>b.supplierId===f.invSupplier);
+  if(f.invCountry) rows = rows.filter(b=>(b.country||'')===f.invCountry);
+
+  const matSuppliers = APP.suppliers.filter(s=>s.type==='material'||s.type==='both');
+  const invCountries = [...new Set(APP.batches.map(b=>b.country).filter(Boolean))].sort();
+  const groupDef = INV_GROUPS[f.invGroupBy] || INV_GROUPS.supplier;
+
+  const groups = {};
+  rows.forEach(b=>{
+    const key = groupDef.keyOf(b);
+    if(!groups[key]) groups[key] = {label: groupDef.labelOf(b), rolls:0, meters:0, weight:0, value:0, batchCount:0};
+    const g = groups[key];
+    g.rolls += b.remainingRolls||0;
+    g.meters += b.remainingMeters||0;
+    g.weight += b.remainingWeight||0;
+    g.value += stockValue(b);
+    g.batchCount += 1;
+  });
+  const groupRows = Object.values(groups).sort((a,b)=>b.value-a.value);
+
+  const totalRolls = rows.reduce((s,b)=>s+(b.remainingRolls||0),0);
+  const totalMeters = rows.reduce((s,b)=>s+(b.remainingMeters||0),0);
+  const totalWeight = rows.reduce((s,b)=>s+(b.remainingWeight||0),0);
+  const totalValue = rows.reduce((s,b)=>s+stockValue(b),0);
+
+  return `
+  <div class="grid kpi-row">
+    ${kpiCard('Total Rolls', fmtNum(totalRolls,0), rows.length+' batches')}
+    ${kpiCard('Total Meters', fmtNum(totalMeters,1)+' m', '')}
+    ${kpiCard('Total Weight', fmtNum(totalWeight,1)+' kg', '')}
+    ${kpiCard('Total Stock Value', fmtMoney(totalValue), '')}
+  </div>
+  <div class="card section">
+    <div class="filters">
+      <select onchange="APP.filters.invGroupBy=this.value; renderMain();">
+        ${Object.entries(INV_GROUPS).map(([k,d])=>`<option value="${k}" ${f.invGroupBy===k?'selected':''}>Group by ${d.label}</option>`).join('')}
+      </select>
+      <input type="text" placeholder="Search material, color, supplier, batch ID…" style="min-width:240px;" value="${esc(f.invSearch)}" oninput="APP.filters.invSearch=this.value; renderMain();">
+      <select onchange="APP.filters.invCategory=this.value; renderMain();">
+        <option value="">All categories</option>
+        ${CATEGORIES.map(c=>`<option value="${c}" ${f.invCategory===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <select onchange="APP.filters.invSupplier=this.value; renderMain();">
+        <option value="">All suppliers</option>
+        ${matSuppliers.map(s=>`<option value="${s.id}" ${f.invSupplier===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+      </select>
+      <select onchange="APP.filters.invCountry=this.value; renderMain();">
+        <option value="">All countries</option>
+        ${invCountries.map(c=>`<option value="${esc(c)}" ${f.invCountry===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="exportInventorySummaryCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    ${groupRows.length===0 ? `<div class="empty">${emptyIcon('boxstack')}<h3>Nothing to summarize yet</h3><p>Receive material, or adjust your filters.</p></div>` : `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>${esc(groupDef.label)}</th><th class="num">Batches</th><th class="num">Total rolls</th><th class="num">Total meters</th><th class="num">Total weight</th><th class="num">Stock value</th>
+        </tr></thead>
+        <tbody>
+          ${groupRows.map(g=>`<tr>
+            <td><strong>${esc(g.label)}</strong></td>
+            <td class="num">${g.batchCount}</td>
+            <td class="num">${fmtNum(g.rolls,0)}</td>
+            <td class="num">${fmtNum(g.meters,1)} m</td>
+            <td class="num">${g.weight>0?fmtNum(g.weight,1)+' kg':'—'}</td>
+            <td class="num">${fmtMoney(g.value)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:600;border-top:2px solid var(--line);">
+            <td>Total</td><td class="num">${rows.length}</td><td class="num">${fmtNum(totalRolls,0)}</td><td class="num">${fmtNum(totalMeters,1)} m</td><td class="num">${totalWeight>0?fmtNum(totalWeight,1)+' kg':'—'}</td><td class="num">${fmtMoney(totalValue)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`}
+  </div>
+  `;
+}
+function exportInventorySummaryCSV(){
+  const f = APP.filters;
+  let rows = APP.batches.slice();
+  if(f.invSearch){
+    const q = f.invSearch.toLowerCase();
+    rows = rows.filter(b => (b.id+' '+b.materialType+' '+b.color+' '+b.design+' '+(b.country||'')+' '+supplierName(b.supplierId)).toLowerCase().includes(q));
+  }
+  if(f.invCategory) rows = rows.filter(b=>b.category===f.invCategory);
+  if(f.invSupplier) rows = rows.filter(b=>b.supplierId===f.invSupplier);
+  if(f.invCountry) rows = rows.filter(b=>(b.country||'')===f.invCountry);
+  const groupDef = INV_GROUPS[f.invGroupBy] || INV_GROUPS.supplier;
+  const groups = {};
+  rows.forEach(b=>{
+    const key = groupDef.keyOf(b);
+    if(!groups[key]) groups[key] = {label: groupDef.labelOf(b), rolls:0, meters:0, weight:0, value:0, batchCount:0};
+    const g = groups[key];
+    g.rolls += b.remainingRolls||0; g.meters += b.remainingMeters||0; g.weight += b.remainingWeight||0; g.value += stockValue(b); g.batchCount += 1;
+  });
+  const out = [[groupDef.label,'Batches','Total Rolls','Total Meters','Total Weight (kg)','Stock Value (Rs.)']];
+  Object.values(groups).sort((a,b)=>b.value-a.value).forEach(g=>{
+    out.push([g.label, g.batchCount, g.rolls, g.meters.toFixed(1), g.weight.toFixed(1), g.value.toFixed(2)]);
+  });
+  exportCSV('inventory_summary_by_'+f.invGroupBy+'.csv', out);
+}
+
+/* ============================================================
+   ISSUE TO GARMENTS
+   ============================================================ */
+function issueFormHTML(availableBatches, lockedBatchId){
+  const garmentParties = APP.suppliers.filter(s=>s.type==='garment'||s.type==='both');
+  const pre = lockedBatchId || APP.prefillBatchId;
+  if(availableBatches.length===0){
+    return `<div class="empty">${emptyIcon('send')}<h3>No stock available to issue</h3><p>${lockedBatchId?'This batch is fully out of stock.':'Receive material first.'}</p>${lockedBatchId?'':'<button class="btn btn-primary" onclick="setRoute(\'receive\')">Receive material</button>'}</div>`;
+  }
+  return `
+      <form onsubmit="return handleIssueSubmit(event)">
+        <div class="form-grid">
+          <div class="field"><label>Date</label><input type="date" id="if_date" value="${todayStr()}" required></div>
+          <div class="field"><label>Purpose</label><select id="if_purpose">${PURPOSES.map(p=>`<option>${p}</option>`).join('')}</select></div>
+          <div class="field span2"><label>Material batch</label>
+            <select id="if_batch" onchange="onIssueBatchChange()" required ${lockedBatchId?'disabled':''}>
+              ${lockedBatchId?'':'<option value="">— Select batch —</option>'}
+              ${availableBatches.map(b=>`<option value="${b.id}" ${pre===b.id?'selected':''}>${b.id} — ${esc(b.materialType)} (${esc(b.color)}) · ${fmtNum(b.remainingMeters,1)} m left</option>`).join('')}
+            </select>
+            <div id="if_batch_info" class="hint"></div>
+          </div>
+          <div class="field"><label>Meters to issue</label><input type="number" min="0.1" step="0.1" id="if_meters" oninput="recalcIssue()" required></div>
+          <div class="field"><label>Rolls to issue <span class="opt">(optional)</span></label><input type="number" min="0" step="1" id="if_rolls"></div>
+          <div class="field span2"><label>Garment</label>
+            <select id="if_garment" onchange="toggleNewGarment()">
+              <option value="">— Select garment style —</option>
+              ${APP.garments.map(g=>`<option value="${g.id}">${g.styleNo?esc(g.styleNo)+' — ':''}${esc(g.name)}</option>`).join('')}
+              <option value="__new__">+ Add new garment style…</option>
+            </select>
+            <div id="if_new_garment" class="inline-add" style="display:none;">
+              <div class="form-grid">
+                <div class="field"><label>Garment name</label><input id="if_ng_name" placeholder="e.g. Men's Casual Shirt"></div>
+                <div class="field"><label>Style no.</label><input id="if_ng_style" placeholder="e.g. STY-101"></div>
+                <div class="field span2"><label>Category</label><input id="if_ng_cat" placeholder="e.g. Shirts"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field"><label>Garment quantity (pcs)</label><input type="number" min="1" step="1" id="if_qty" oninput="recalcIssue()" required></div>
+          <div class="field"><label>Consumption / garment (auto)</label><div class="readout" id="if_consumption">0.0 m</div></div>
+          <div class="field span2"><label>Garment supplier / buyer <span class="opt">(optional)</span></label>
+            <select id="if_party" onchange="toggleInlineAdd('if')">
+              <option value="">— None —</option>
+              ${garmentParties.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+              <option value="__new__">+ Add new party…</option>
+            </select>
+            <div id="if_new_supplier" class="inline-add" style="display:none;">
+              <div class="form-grid">
+                <div class="field"><label>Party name</label><input id="if_ns_name" placeholder="e.g. Sunrise Garments"></div>
+                <div class="field"><label>Phone</label><input id="if_ns_phone" placeholder="07X XXX XXXX"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field span2"><label>Notes <span class="opt">(optional)</span></label><textarea id="if_notes"></textarea></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">${icon('send',15)} Issue material</button>
+        </div>
+      </form>`;
+}
+function renderIssuePage(){
+  const sorted = [...APP.batches].filter(b=>!isOut(b)).sort((a,b)=>a.materialType.localeCompare(b.materialType));
+  const recent = [...APP.issues].sort((a,b)=>b.createdAt-a.createdAt).slice(0,8);
+
+  return `
+  <div class="two-col">
+    <div class="card section">
+      <div class="section-head"><h2>New issue</h2><span class="hint">Deducts straight from batch stock</span></div>
+      ${issueFormHTML(sorted, null)}
+    </div>
+    <div class="card section">
+      <div class="section-head"><h2>Recent issues</h2></div>
+      ${recent.length===0?`<p class="hint">No issues yet.</p>`:`
+      <div class="activity-list">
+        ${recent.map(i=>`<div class="activity-row">
+          <div class="a-main"><span>${esc(i.garmentName)}${i.styleNo?' ('+esc(i.styleNo)+')':''}</span><span class="a-id">${i.id} · from ${i.batchId} · ${fmtDate(i.date)}</span></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="mono">${fmtNum(i.metersIssued,1)} m · ${fmtMoney(i.costOfMaterial)}</span>
+            <button class="btn-icon" title="Edit issue" onclick="openIssueModal('${i.id}')">${icon('edit',14)}</button>
+            ${(APP.currentUser && APP.currentUser.role==='admin') ? `<button class="btn-icon" title="Delete issue" onclick="deleteIssue('${i.id}')">${icon('trash',14)}</button>` : ''}
+          </div>
+        </div>`).join('')}
+      </div>`}
+    </div>
+  </div>
+  `;
+  // note: after this HTML is inserted, caller should run onIssueBatchChange() if pre is set
+}
+function onIssueBatchChange(){
+  const sel = document.getElementById('if_batch');
+  const info = document.getElementById('if_batch_info');
+  const b = batchById(sel.value);
+  if(b){
+    info.innerHTML = 'Remaining: <strong>'+fmtNum(b.remainingRolls,0)+' rolls</strong> / <strong>'+fmtNum(b.remainingMeters,1)+' m</strong> · Price '+fmtMoney(b.pricePerMeter)+'/m';
+    document.getElementById('if_meters').max = b.remainingMeters;
+  } else { info.textContent=''; }
+  recalcIssue();
+}
+function recalcIssue(){
+  const meters = num(document.getElementById('if_meters').value);
+  const qty = num(document.getElementById('if_qty').value);
+  const out = document.getElementById('if_consumption');
+  out.textContent = qty>0 ? fmtNum(meters/qty,2)+' m' : '—';
+}
+function toggleNewGarment(){
+  const sel = document.getElementById('if_garment');
+  document.getElementById('if_new_garment').style.display = sel.value==='__new__' ? 'block':'none';
+}
+
+async function handleIssueSubmit(ev){
+  ev.preventDefault();
+  const batchId = document.getElementById('if_batch').value;
+  const b = batchById(batchId);
+  if(!b){ toast('Select a material batch.','err'); return false; }
+  const meters = num(document.getElementById('if_meters').value);
+  const rolls = num(document.getElementById('if_rolls').value);
+  if(meters<=0){ toast('Meters to issue must be greater than zero.','err'); return false; }
+  if(meters > b.remainingMeters + 0.001){ toast('Only '+fmtNum(b.remainingMeters,1)+' m remaining in this batch.','err'); return false; }
+  if(rolls > b.remainingRolls){ toast('Only '+b.remainingRolls+' rolls remaining in this batch.','err'); return false; }
+
+  let garmentId = document.getElementById('if_garment').value;
+  let garmentName, styleNo, garmentCategory;
+  if(garmentId==='__new__'){
+    const name = document.getElementById('if_ng_name').value.trim();
+    if(!name){ toast('Enter the new garment name.','err'); return false; }
+    const newStyleNo = document.getElementById('if_ng_style').value.trim();
+    const existingGar = findDuplicateGarment(name, newStyleNo);
+    if(existingGar){
+      garmentId = existingGar.id; garmentName=existingGar.name; styleNo=existingGar.styleNo; garmentCategory=existingGar.category;
+      toast('Using existing garment "'+existingGar.name+'".', 'ok');
+    } else {
+      const g = {id:uid('gar'), name, styleNo:newStyleNo, category:document.getElementById('if_ng_cat').value.trim(), defaultConsumption:0, partyId:'', notes:'', createdAt:Date.now()};
+      APP.garments.push(g); await saveCollection('garments');
+      garmentId = g.id; garmentName=g.name; styleNo=g.styleNo; garmentCategory=g.category;
+    }
+  } else if(garmentId){
+    const g = APP.garments.find(x=>x.id===garmentId);
+    garmentName=g.name; styleNo=g.styleNo; garmentCategory=g.category;
+  } else {
+    garmentId=''; garmentName='(Unspecified garment)'; styleNo=''; garmentCategory='';
+  }
+
+  let partyId = document.getElementById('if_party').value;
+  if(partyId==='__new__'){
+    const name = document.getElementById('if_ns_name').value.trim();
+    if(name){
+      const existingParty = findDuplicateSupplier(name);
+      if(existingParty){
+        partyId = existingParty.id;
+        toast('Using existing party "'+existingParty.name+'".', 'ok');
+      } else {
+        const sup = {id:uid('sup'), name, type:'garment', contact:'', phone:document.getElementById('if_ns_phone').value.trim(), email:'', address:'', country:'', notes:'', createdAt:Date.now()};
+        APP.suppliers.push(sup); await saveCollection('suppliers');
+        partyId = sup.id;
+      }
+    } else partyId='';
+  }
+
+  const qty = num(document.getElementById('if_qty').value);
+  const year = new Date().getFullYear();
+  const id = 'ISS-'+year+'-'+String(APP.nextIssueSeq).padStart(4,'0');
+  APP.nextIssueSeq += 1;
+
+  const weightPerMeter = (b.weightPerRoll && b.meterPerRoll) ? (b.weightPerRoll / b.meterPerRoll) : 0;
+  const weightIssued = meters * weightPerMeter;
+
+  const issue = {
+    id, date: document.getElementById('if_date').value || todayStr(),
+    batchId, metersIssued: meters, rollsIssued: rolls, weightIssued,
+    garmentId, garmentName, styleNo, garmentCategory,
+    qtyGarments: qty, consumptionPerGarment: qty>0? meters/qty : 0,
+    partyId, purpose: document.getElementById('if_purpose').value,
+    costOfMaterial: meters*b.pricePerMeter,
+    notes: document.getElementById('if_notes').value.trim(),
+    createdAt: Date.now()
+  };
+  APP.issues.push(issue);
+  b.remainingMeters = Math.max(0, b.remainingMeters - meters);
+  b.remainingRolls = Math.max(0, b.remainingRolls - rolls);
+  b.remainingWeight = Math.max(0, (b.remainingWeight||0) - weightIssued);
+  await saveCollection('issues');
+  await saveCollection('batches');
+  await saveMeta();
+  toast('Issue '+id+' recorded.', 'ok');
+  if(APP.scanMode && APP.scanBatchId){
+    renderScanScreen(APP.scanBatchId);
+  } else {
+    setRoute('stock');
+  }
+  return false;
+}
+
+/* ---------- edit an existing issue ----------
+   A single <select> is used for the batch/GRN field (same as the create
+   form), so an issue can only ever be linked to exactly one GRN — you
+   can change which batch an issue draws from, but never attach more
+   than one. */
+function openIssueModal(id){
+  const i = APP.issues.find(x=>x.id===id);
+  if(!i){ toast('Issue not found.','err'); return; }
+  const garmentParties = APP.suppliers.filter(s=>s.type==='garment'||s.type==='both');
+
+  // Batch options: any batch that currently has stock, plus this issue's
+  // own batch (shown with stock added back, since editing/re-saving this
+  // issue will first return its old quantities to that batch).
+  const batchOptions = APP.batches.map(b=>{
+    const isCurrent = b.id===i.batchId;
+    const availMeters = isCurrent ? (b.remainingMeters||0) + i.metersIssued : (b.remainingMeters||0);
+    const availRolls = isCurrent ? (b.remainingRolls||0) + (i.rollsIssued||0) : (b.remainingRolls||0);
+    return {b, availMeters, availRolls, isCurrent};
+  }).filter(x=>x.isCurrent || x.availMeters>0.0001)
+    .sort((a,b)=>a.b.materialType.localeCompare(b.b.materialType));
+
+  openModal(`
+    <div class="modal-head"><h3>Edit issue — ${esc(i.id)}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <form onsubmit="return saveIssueEdit(event,'${id}')">
+        <div class="form-grid">
+          <div class="field"><label>Date</label><input type="date" id="em_date" value="${esc(i.date)}" required></div>
+          <div class="field"><label>Purpose</label><select id="em_purpose">${PURPOSES.map(p=>`<option ${i.purpose===p?'selected':''}>${p}</option>`).join('')}</select></div>
+          <div class="field span2"><label>Material batch (GRN)</label>
+            <select id="em_batch" onchange="onEditIssueBatchChange('${id}')" required>
+              ${batchOptions.map(x=>`<option value="${esc(x.b.id)}" ${x.b.id===i.batchId?'selected':''}>${esc(x.b.id)} — ${esc(x.b.materialType)} (${esc(x.b.color)}) · ${fmtNum(x.availMeters,1)} m available</option>`).join('')}
+            </select>
+            <div id="em_batch_info" class="hint"></div>
+            <p class="hint" style="margin-top:4px;">Only one GRN / batch can be linked to an issue — pick the single batch this material came from.</p>
+          </div>
+          <div class="field"><label>Meters to issue</label><input type="number" min="0.1" step="0.1" id="em_meters" value="${i.metersIssued}" oninput="recalcEditIssue()" required></div>
+          <div class="field"><label>Rolls to issue <span class="opt">(optional)</span></label><input type="number" min="0" step="1" id="em_rolls" value="${i.rollsIssued||0}"></div>
+          <div class="field span2"><label>Garment</label>
+            <select id="em_garment">
+              <option value="">— Select garment style —</option>
+              ${APP.garments.map(g=>`<option value="${esc(g.id)}" ${i.garmentId===g.id?'selected':''}>${g.styleNo?esc(g.styleNo)+' — ':''}${esc(g.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Garment quantity (pcs)</label><input type="number" min="1" step="1" id="em_qty" value="${i.qtyGarments}" oninput="recalcEditIssue()" required></div>
+          <div class="field"><label>Consumption / garment (auto)</label><div class="readout" id="em_consumption">${fmtNum(i.consumptionPerGarment,2)} m</div></div>
+          <div class="field span2"><label>Garment supplier / buyer <span class="opt">(optional)</span></label>
+            <select id="em_party">
+              <option value="">— None —</option>
+              ${garmentParties.map(s=>`<option value="${esc(s.id)}" ${i.partyId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field span2"><label>Notes <span class="opt">(optional)</span></label><textarea id="em_notes">${esc(i.notes||'')}</textarea></div>
+        </div>
+        <div class="form-actions" style="justify-content:space-between;">
+          <span>${(APP.currentUser && APP.currentUser.role==='admin') ? `<button type="button" class="btn btn-danger btn-sm" onclick="deleteIssue('${id}')">${icon('trash',14)} Delete issue</button>` : ''}</span>
+          <span style="display:flex;gap:10px;"><button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></span>
+        </div>
+      </form>
+    </div>
+  `);
+  onEditIssueBatchChange(id);
+}
+function onEditIssueBatchChange(id){
+  const i = APP.issues.find(x=>x.id===id);
+  const sel = document.getElementById('em_batch');
+  const info = document.getElementById('em_batch_info');
+  if(!sel || !i) return;
+  const b = batchById(sel.value);
+  if(b){
+    const isCurrent = b.id===i.batchId;
+    const availMeters = isCurrent ? (b.remainingMeters||0) + i.metersIssued : (b.remainingMeters||0);
+    const availRolls = isCurrent ? (b.remainingRolls||0) + (i.rollsIssued||0) : (b.remainingRolls||0);
+    info.innerHTML = 'Available: <strong>'+fmtNum(availRolls,0)+' rolls</strong> / <strong>'+fmtNum(availMeters,1)+' m</strong> · Price '+fmtMoney(b.pricePerMeter)+'/m';
+    document.getElementById('em_meters').max = availMeters;
+  } else { info.textContent=''; }
+  recalcEditIssue();
+}
+function recalcEditIssue(){
+  const metersEl = document.getElementById('em_meters');
+  const qtyEl = document.getElementById('em_qty');
+  const out = document.getElementById('em_consumption');
+  if(!metersEl || !qtyEl || !out) return;
+  const meters = num(metersEl.value);
+  const qty = num(qtyEl.value);
+  out.textContent = qty>0 ? fmtNum(meters/qty,2)+' m' : '—';
+}
+async function saveIssueEdit(ev,id){
+  ev.preventDefault();
+  const i = APP.issues.find(x=>x.id===id);
+  if(!i){ toast('Issue not found.','err'); return false; }
+
+  const newBatchId = document.getElementById('em_batch').value;
+  const newBatch = batchById(newBatchId);
+  if(!newBatch){ toast('Select a material batch (GRN).','err'); return false; }
+
+  const meters = num(document.getElementById('em_meters').value);
+  const rolls = num(document.getElementById('em_rolls').value);
+  if(meters<=0){ toast('Meters to issue must be greater than zero.','err'); return false; }
+
+  // Return this issue's original quantities to its original batch first,
+  // so validation below is against true available stock either way.
+  const oldBatch = batchById(i.batchId);
+  if(oldBatch){
+    oldBatch.remainingMeters = (oldBatch.remainingMeters||0) + i.metersIssued;
+    oldBatch.remainingRolls = (oldBatch.remainingRolls||0) + (i.rollsIssued||0);
+    oldBatch.remainingWeight = (oldBatch.remainingWeight||0) + (i.weightIssued||0);
+  }
+  function undoRevert(){
+    if(oldBatch){
+      oldBatch.remainingMeters = Math.max(0, oldBatch.remainingMeters - i.metersIssued);
+      oldBatch.remainingRolls = Math.max(0, oldBatch.remainingRolls - (i.rollsIssued||0));
+      oldBatch.remainingWeight = Math.max(0, oldBatch.remainingWeight - (i.weightIssued||0));
+    }
+  }
+
+  if(meters > newBatch.remainingMeters + 0.001){
+    undoRevert();
+    toast('Only '+fmtNum(newBatch.remainingMeters,1)+' m remaining in that batch.','err');
+    return false;
+  }
+  if(rolls > newBatch.remainingRolls){
+    undoRevert();
+    toast('Only '+newBatch.remainingRolls+' rolls remaining in that batch.','err');
+    return false;
+  }
+
+  const garmentId = document.getElementById('em_garment').value;
+  let garmentName, styleNo, garmentCategory;
+  if(garmentId){
+    const g = APP.garments.find(x=>x.id===garmentId);
+    garmentName=g.name; styleNo=g.styleNo; garmentCategory=g.category;
+  } else {
+    garmentName='(Unspecified garment)'; styleNo=''; garmentCategory='';
+  }
+
+  const partyId = document.getElementById('em_party').value;
+  const qty = num(document.getElementById('em_qty').value);
+  const weightPerMeter = (newBatch.weightPerRoll && newBatch.meterPerRoll) ? (newBatch.weightPerRoll / newBatch.meterPerRoll) : 0;
+  const weightIssued = meters * weightPerMeter;
+
+  // Apply the (possibly edited) quantities to the (possibly new) batch.
+  newBatch.remainingMeters = Math.max(0, newBatch.remainingMeters - meters);
+  newBatch.remainingRolls = Math.max(0, newBatch.remainingRolls - rolls);
+  newBatch.remainingWeight = Math.max(0, (newBatch.remainingWeight||0) - weightIssued);
+
+  Object.assign(i, {
+    date: document.getElementById('em_date').value || i.date,
+    purpose: document.getElementById('em_purpose').value,
+    batchId: newBatch.id,
+    metersIssued: meters, rollsIssued: rolls, weightIssued,
+    garmentId, garmentName, styleNo, garmentCategory,
+    qtyGarments: qty, consumptionPerGarment: qty>0 ? meters/qty : 0,
+    partyId,
+    costOfMaterial: meters*newBatch.pricePerMeter,
+    notes: document.getElementById('em_notes').value.trim()
+  });
+
+  await saveCollection('issues');
+  await saveCollection('batches');
+  closeModal();
+  toast('Issue '+i.id+' updated.','ok');
+  renderMain();
+  return false;
+}
+async function deleteIssue(id){
+  if(!APP.currentUser || APP.currentUser.role!=='admin'){
+    toast('Only an admin can delete an issue.','err');
+    return;
+  }
+  const i = APP.issues.find(x=>x.id===id);
+  if(!i){ toast('Issue not found.','err'); return; }
+  if(!confirm('Delete issue '+i.id+'? This returns '+fmtNum(i.metersIssued,1)+' m back to batch '+i.batchId+' stock.')) return;
+
+  // Deleting an issue returns its material back to the batch it was drawn from.
+  const b = batchById(i.batchId);
+  if(b){
+    b.remainingMeters = (b.remainingMeters||0) + i.metersIssued;
+    b.remainingRolls = (b.remainingRolls||0) + (i.rollsIssued||0);
+    b.remainingWeight = (b.remainingWeight||0) + (i.weightIssued||0);
+  }
+  APP.issues = APP.issues.filter(x=>x.id!==id);
+  await saveCollection('issues');
+  await saveCollection('batches');
+  closeModal();
+  toast('Issue '+id+' deleted.','ok');
+  renderMain();
+}
+
+/* ============================================================
+   GARMENTS MASTER
+   ============================================================ */
+function renderGarmentsPage(){
+  const rows = [...APP.garments].sort((a,b)=>(a.styleNo||'').localeCompare(b.styleNo||''));
+  return `
+  <div class="card section">
+    <div class="section-head"><h2>Garment styles</h2>
+      <button class="btn btn-primary btn-sm" onclick="openGarmentModal()">${icon('plus',14)} Add garment</button>
+    </div>
+    ${rows.length===0 ? `<div class="empty">${emptyIcon('shirt')}<h3>No garment styles yet</h3><p>Add a garment style, or create one on the fly when issuing material.</p><button class="btn btn-primary" onclick="openGarmentModal()">${icon('plus',15)} Add garment</button></div>` : `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Style No.</th><th>Name</th><th>Category</th><th>Default consumption</th><th>Buyer / maker</th><th class="num">Issues</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(g=>{
+            const issueCount = APP.issues.filter(i=>i.garmentId===g.id).length;
+            return `<tr>
+              <td class="id">${esc(g.styleNo||'—')}</td>
+              <td>${esc(g.name)}</td>
+              <td>${esc(g.category||'—')}</td>
+              <td>${g.defaultConsumption? fmtNum(g.defaultConsumption,2)+' m':'—'}</td>
+              <td>${esc(supplierName(g.partyId))}</td>
+              <td class="num">${issueCount}</td>
+              <td><div style="display:flex;gap:5px;">
+                <button class="btn-icon" onclick="openGarmentModal('${g.id}')">${icon('edit',14)}</button>
+                <button class="btn-icon" onclick="deleteGarment('${g.id}')">${icon('trash',14)}</button>
+              </div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>
+  `;
+}
+function openGarmentModal(id){
+  const g = id ? APP.garments.find(x=>x.id===id) : null;
+  const garmentParties = APP.suppliers.filter(s=>s.type==='garment'||s.type==='both');
+  openModal(`
+    <div class="modal-head"><h3>${g?'Edit garment':'Add garment'}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <form onsubmit="return saveGarment(event,'${id||''}')">
+        <div class="form-grid">
+          <div class="field"><label>Style no.</label><input id="gm_style" value="${g?esc(g.styleNo):''}" placeholder="STY-101"></div>
+          <div class="field"><label>Category</label><input id="gm_cat" value="${g?esc(g.category):''}" placeholder="Shirts"></div>
+          <div class="field span2"><label>Garment name</label><input id="gm_name" value="${g?esc(g.name):''}" required placeholder="Men's Casual Shirt"></div>
+          <div class="field"><label>Default consumption (m/pc) <span class="opt">optional</span></label><input type="number" step="0.01" min="0" id="gm_cons" value="${g?g.defaultConsumption:''}"></div>
+          <div class="field"><label>Buyer / maker</label>
+            <select id="gm_party"><option value="">— None —</option>${garmentParties.map(s=>`<option value="${s.id}" ${g&&g.partyId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+          </div>
+          <div class="field span2"><label>Notes</label><textarea id="gm_notes">${g?esc(g.notes):''}</textarea></div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save garment</button></div>
+      </form>
+    </div>
+  `);
+}
+async function saveGarment(ev,id){
+  ev.preventDefault();
+  const data = {
+    styleNo: document.getElementById('gm_style').value.trim(),
+    category: document.getElementById('gm_cat').value.trim(),
+    name: document.getElementById('gm_name').value.trim(),
+    defaultConsumption: num(document.getElementById('gm_cons').value),
+    partyId: document.getElementById('gm_party').value,
+    notes: document.getElementById('gm_notes').value.trim()
+  };
+  if(!data.name){ toast('Garment name is required.','err'); return false; }
+  const dupGar = findDuplicateGarment(data.name, data.styleNo, id);
+  if(dupGar){ toast('A garment "'+dupGar.name+'"'+(dupGar.styleNo?' (style '+dupGar.styleNo+')':'')+' already exists.','err'); return false; }
+  if(id){
+    Object.assign(APP.garments.find(g=>g.id===id), data);
+  } else {
+    APP.garments.push(Object.assign({id:uid('gar'), createdAt:Date.now()}, data));
+  }
+  await saveCollection('garments');
+  closeModal();
+  toast('Garment saved.','ok');
+  renderMain();
+  return false;
+}
+async function deleteGarment(id){
+  if(!confirm('Remove this garment style? Past issues will keep their record.')) return;
+  APP.garments = APP.garments.filter(g=>g.id!==id);
+  await saveCollection('garments');
+  renderMain();
+  toast('Garment removed.','ok');
+}
+
+/* ============================================================
+   SUPPLIERS
+   ============================================================ */
+function renderSuppliersPage(){
+  const rows = [...APP.suppliers].sort((a,b)=>a.name.localeCompare(b.name));
+  return `
+  <div class="card section">
+    <div class="section-head"><h2>Suppliers &amp; parties</h2>
+      <button class="btn btn-primary btn-sm" onclick="openSupplierModal()">${icon('plus',14)} Add supplier</button>
+    </div>
+    ${rows.length===0 ? `<div class="empty">${emptyIcon('truck')}<h3>No suppliers yet</h3><p>Add material vendors and garment buyers/makers here, or on the fly from Receive / Issue forms.</p><button class="btn btn-primary" onclick="openSupplierModal()">${icon('plus',15)} Add supplier</button></div>` : `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Phone</th><th class="num">Batches supplied</th><th class="num">Garments issued to</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(s=>{
+            const batchCount = APP.batches.filter(b=>b.supplierId===s.id).length;
+            const issueCount = APP.issues.filter(i=>i.partyId===s.id).length;
+            const typeLabel = s.type==='material'?'Material vendor':s.type==='garment'?'Garment buyer/maker':'Material &amp; garment';
+            return `<tr>
+              <td><strong>${esc(s.name)}</strong>${s.address?`<div class="hint" style="font-size:11px;">${esc(s.address)}</div>`:''}</td>
+              <td><span class="badge badge-grey">${typeLabel}</span></td>
+              <td>${esc(s.contact||'—')}</td>
+              <td class="mono">${esc(s.phone||'—')}</td>
+              <td class="num">${batchCount}</td>
+              <td class="num">${issueCount}</td>
+              <td><div style="display:flex;gap:5px;">
+                <button class="btn-icon" onclick="openSupplierModal('${s.id}')">${icon('edit',14)}</button>
+                <button class="btn-icon" onclick="deleteSupplier('${s.id}')">${icon('trash',14)}</button>
+              </div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>
+  `;
+}
+function openSupplierModal(id){
+  const s = id ? APP.suppliers.find(x=>x.id===id) : null;
+  openModal(`
+    <div class="modal-head"><h3>${s?'Edit supplier':'Add supplier'}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <form onsubmit="return saveSupplier(event,'${id||''}')">
+        <div class="form-grid">
+          <div class="field span2"><label>Name</label><input id="sm_name" value="${s?esc(s.name):''}" required placeholder="Company or individual name"></div>
+          <div class="field"><label>Type</label>
+            <select id="sm_type">
+              <option value="material" ${s&&s.type==='material'?'selected':''}>Material vendor</option>
+              <option value="garment" ${s&&s.type==='garment'?'selected':''}>Garment buyer / maker</option>
+              <option value="both" ${s&&s.type==='both'?'selected':''}>Both</option>
+            </select>
+          </div>
+          <div class="field"><label>Country <span class="opt">optional</span></label><input id="sm_country" value="${s?esc(s.country):''}" placeholder="e.g. Sri Lanka, China"></div>
+          <div class="field"><label>Contact person</label><input id="sm_contact" value="${s?esc(s.contact):''}"></div>
+          <div class="field"><label>Phone</label><input id="sm_phone" value="${s?esc(s.phone):''}"></div>
+          <div class="field"><label>Email</label><input id="sm_email" value="${s?esc(s.email):''}"></div>
+          <div class="field"><label>Address</label><input id="sm_address" value="${s?esc(s.address):''}"></div>
+          <div class="field span2"><label>Notes</label><textarea id="sm_notes">${s?esc(s.notes):''}</textarea></div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save supplier</button></div>
+      </form>
+    </div>
+  `);
+}
+async function saveSupplier(ev,id){
+  ev.preventDefault();
+  const data = {
+    name: document.getElementById('sm_name').value.trim(),
+    type: document.getElementById('sm_type').value,
+    country: document.getElementById('sm_country').value.trim(),
+    contact: document.getElementById('sm_contact').value.trim(),
+    phone: document.getElementById('sm_phone').value.trim(),
+    email: document.getElementById('sm_email').value.trim(),
+    address: document.getElementById('sm_address').value.trim(),
+    notes: document.getElementById('sm_notes').value.trim()
+  };
+  if(!data.name){ toast('Supplier name is required.','err'); return false; }
+  const dupSup = findDuplicateSupplier(data.name, id);
+  if(dupSup){ toast('A supplier named "'+dupSup.name+'" already exists.','err'); return false; }
+  if(id){ Object.assign(APP.suppliers.find(s=>s.id===id), data); }
+  else { APP.suppliers.push(Object.assign({id:uid('sup'), createdAt:Date.now()}, data)); }
+  await saveCollection('suppliers');
+  closeModal();
+  toast('Supplier saved.','ok');
+  renderMain();
+  return false;
+}
+async function deleteSupplier(id){
+  if(!confirm('Remove this supplier? Past batches/issues will keep their record.')) return;
+  APP.suppliers = APP.suppliers.filter(s=>s.id!==id);
+  await saveCollection('suppliers');
+  renderMain();
+  toast('Supplier removed.','ok');
+}
+
+/* ============================================================
+   USERS (admin only)
+   ============================================================ */
+function activeAdminCount(){ return APP.users.filter(u=>u.role==='admin' && u.active).length; }
+
+function renderUsersPage(){
+  if(!APP.currentUser || APP.currentUser.role!=='admin'){
+    return `<div class="card empty">${emptyIcon('lock')}<h3>Admins only</h3><p>You don't have access to this page.</p></div>`;
+  }
+  const rows = [...APP.users].sort((a,b)=>a.displayName.localeCompare(b.displayName));
+  return `
+  <div class="card section">
+    <div class="section-head"><h2>Sign-in accounts</h2>
+      <button class="btn btn-primary btn-sm" onclick="openUserModal()">${icon('plus',14)} Add user</button>
+    </div>
+    <p class="helptext" style="margin-bottom:14px;">Only admins can create or manage accounts. Staff accounts can use every page except this one.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Added</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(u=>`<tr>
+            <td><strong>${esc(u.displayName)}</strong>${u.id===APP.currentUser.id?' <span class="hint" style="font-size:11px;">(you)</span>':''}</td>
+            <td class="mono">${esc(u.username)}</td>
+            <td><span class="role-badge ${u.role}" style="background:${u.role==='admin'?'var(--amber-soft)':'var(--surface-alt)'};color:${u.role==='admin'?'#B91C1C':'var(--ink-soft)'}">${u.role}</span></td>
+            <td><span class="badge ${u.active?'badge-olive':'badge-rust'}">${u.active?'Active':'Disabled'}</span></td>
+            <td>${fmtDate(u.createdAt ? new Date(u.createdAt).toISOString().slice(0,10) : '')}</td>
+            <td><div style="display:flex;gap:5px;">
+              <button class="btn-icon" title="Edit" onclick="openUserModal('${u.id}')">${icon('edit',14)}</button>
+              <button class="btn-icon" title="Delete" onclick="deleteUser('${u.id}')">${icon('trash',14)}</button>
+            </div></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  `;
+}
+
+function openUserModal(id){
+  const u = id ? APP.users.find(x=>x.id===id) : null;
+  openModal(`
+    <div class="modal-head"><h3>${u?'Edit user':'Add user'}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <form onsubmit="return saveUser(event,'${id||''}')">
+        <div class="form-grid">
+          <div class="field span2"><label>Full name</label><input id="um_name" value="${u?esc(u.displayName):''}" required placeholder="e.g. Nimal Perera"></div>
+          <div class="field"><label>Username</label><input id="um_username" value="${u?esc(u.username):''}" ${u?'readonly style="background:var(--surface-alt);"':''} required placeholder="e.g. nimal"></div>
+          <div class="field"><label>Role</label>
+            <select id="um_role">
+              <option value="staff" ${u&&u.role==='staff'?'selected':''}>Staff</option>
+              <option value="admin" ${u&&u.role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </div>
+          <div class="field"><label>${u?'New password':'Password'} ${u?'<span class="opt">(leave blank to keep current)</span>':''}</label><input type="password" id="um_password" ${u?'':'required'} placeholder="${u?'••••••••':'Minimum 4 characters'}"></div>
+          <div class="field"><label>Status</label>
+            <select id="um_active">
+              <option value="1" ${!u||u.active?'selected':''}>Active</option>
+              <option value="0" ${u&&!u.active?'selected':''}>Disabled</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions"><button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button><button type="submit" class="btn btn-primary">Save user</button></div>
+      </form>
+    </div>
+  `);
+}
+
+async function saveUser(ev,id){
+  ev.preventDefault();
+  const displayName = document.getElementById('um_name').value.trim();
+  const username = document.getElementById('um_username').value.trim().toLowerCase();
+  const role = document.getElementById('um_role').value;
+  const active = document.getElementById('um_active').value==='1';
+  const password = document.getElementById('um_password').value;
+
+  if(!displayName || !username){ toast('Name and username are required.','err'); return false; }
+  if(!/^[a-z0-9._-]{3,}$/.test(username)){ toast('Username must be at least 3 characters (letters, numbers, dot, underscore, dash only).','err'); return false; }
+
+  const existing = APP.users.find(x=>x.username===username && x.id!==id);
+  if(existing){ toast('That username is already taken.','err'); return false; }
+
+  if(id){
+    const u = APP.users.find(x=>x.id===id);
+    if(u.role==='admin' && (role!=='admin' || !active) && activeAdminCount()<=1){
+      toast('You must keep at least one active admin.','err'); return false;
+    }
+    u.displayName = displayName; u.role = role; u.active = active;
+    if(password){
+      if(password.length<4){ toast('Password must be at least 4 characters.','err'); return false; }
+      u.salt = randomSalt();
+      u.passwordHash = await hashPassword(password, u.salt);
+    }
+  } else {
+    if(!password || password.length<4){ toast('Password must be at least 4 characters.','err'); return false; }
+    const salt = randomSalt();
+    const passwordHash = await hashPassword(password, salt);
+    APP.users.push({
+      id: uid('usr'), displayName, username, role, active, salt, passwordHash,
+      createdAt: Date.now(), createdBy: APP.currentUser.id
+    });
+  }
+  await saveCollection('users');
+  closeModal();
+  toast('User saved.','ok');
+  renderMain();
+  return false;
+}
+
+async function deleteUser(id){
+  if(id===APP.currentUser.id){ toast('You cannot delete your own account while signed in.','err'); return; }
+  const u = APP.users.find(x=>x.id===id);
+  if(!u) return;
+  if(u.role==='admin' && u.active && activeAdminCount()<=1){ toast('You must keep at least one active admin.','err'); return; }
+  if(!confirm('Remove the account for '+u.displayName+'?')) return;
+  APP.users = APP.users.filter(x=>x.id!==id);
+  await saveCollection('users');
+  renderMain();
+  toast('User removed.','ok');
+}
+
+/* ============================================================
+   REPORTS
+   ============================================================ */
+function categoryAllowed(cat){
+  if(!APP.filters.repCategories) APP.filters.repCategories = [...CATEGORIES];
+  return APP.filters.repCategories.includes(cat);
+}
+function countryAllowed(country){
+  const rc = APP.filters.repCountry;
+  if(!rc) return true;
+  return (country||'') === rc;
+}
+function reportCountriesUsed(){
+  return [...new Set(APP.batches.map(b=>b.country).filter(Boolean))].sort();
+}
+function setReportCategories(mode){
+  APP.filters.repCategories = mode==='all' ? [...CATEGORIES] : [];
+  renderMain();
+}
+function toggleReportCategory(cat, checked){
+  if(!APP.filters.repCategories) APP.filters.repCategories = [...CATEGORIES];
+  const arr = APP.filters.repCategories;
+  const i = arr.indexOf(cat);
+  if(checked && i===-1) arr.push(cat);
+  if(!checked && i!==-1) arr.splice(i,1);
+  renderMain();
+}
+function renderReportsPage(){
+  const f = APP.filters;
+  if(!f.repCategories) f.repCategories = [...CATEGORIES];
+  const from = f.repFrom, to = f.repTo;
+  const inRange = (d) => (!from || d>=from) && (!to || d<=to);
+
+  const receipts = APP.batches.filter(b=>inRange(b.date) && categoryAllowed(b.category) && countryAllowed(b.country));
+  const issuesInRange = APP.issues.filter(i=>{
+    if(!inRange(i.date)) return false;
+    const b = batchById(i.batchId);
+    return b ? (categoryAllowed(b.category) && countryAllowed(b.country)) : true;
+  });
+
+  const recvRolls = receipts.reduce((s,b)=>s+b.totalRolls,0);
+  const recvMeters = receipts.reduce((s,b)=>s+b.totalLength,0);
+  const recvCost = receipts.reduce((s,b)=>s+b.totalCost,0);
+
+  const issMeters = issuesInRange.reduce((s,i)=>s+i.metersIssued,0);
+  const issCost = issuesInRange.reduce((s,i)=>s+i.costOfMaterial,0);
+  const issGarments = issuesInRange.reduce((s,i)=>s+i.qtyGarments,0);
+
+  const catFilteredBatches = APP.batches.filter(b=>categoryAllowed(b.category) && countryAllowed(b.country));
+  const totalStockValue = catFilteredBatches.reduce((s,b)=>s+stockValue(b),0);
+  const byCat = {};
+  catFilteredBatches.forEach(b=>{ byCat[b.category]=byCat[b.category]||{rolls:0,meters:0,weight:0,value:0}; byCat[b.category].rolls+=b.remainingRolls; byCat[b.category].meters+=b.remainingMeters; byCat[b.category].weight+=(b.remainingWeight||0); byCat[b.category].value+=stockValue(b); });
+  const byCountry = {};
+  catFilteredBatches.forEach(b=>{ const key=b.country||'Unspecified'; byCountry[key]=byCountry[key]||{rolls:0,meters:0,weight:0,value:0,cost:0}; byCountry[key].rolls+=b.remainingRolls; byCountry[key].meters+=b.remainingMeters; byCountry[key].weight+=(b.remainingWeight||0); byCountry[key].value+=stockValue(b); byCountry[key].cost+=b.totalCost; });
+
+  const supplierRows = APP.suppliers.map(s=>{
+    const sb = APP.batches.filter(b=>b.supplierId===s.id && categoryAllowed(b.category) && countryAllowed(b.country));
+    const si = APP.issues.filter(i=>{
+      if(i.partyId!==s.id) return false;
+      const b = batchById(i.batchId);
+      return b ? (categoryAllowed(b.category) && countryAllowed(b.country)) : true;
+    });
+    return {s, batchCount: sb.length, batchValue: sb.reduce((x,b)=>x+b.totalCost,0), issueCount: si.length, issueValue: si.reduce((x,i)=>x+i.costOfMaterial,0)};
+  }).filter(r=>r.batchCount>0 || r.issueCount>0).sort((a,b)=>b.batchValue+b.issueValue-(a.batchValue+a.issueValue));
+
+  const lowRows = catFilteredBatches.filter(isLow);
+  const outRows = catFilteredBatches.filter(isOut);
+
+  const allSelected = f.repCategories.length===CATEGORIES.length;
+  const noneSelected = f.repCategories.length===0;
+  const reportCountries = reportCountriesUsed();
+
+  return `
+  <div class="card section">
+    <div class="section-head"><h2>Categories</h2><span class="hint">Applies to every report below</span></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setReportCategories('all')">${icon('plus',13)} Select all categories</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="setReportCategories('none')">Clear all</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:9px 20px;">
+      ${CATEGORIES.map(c=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+        <input type="checkbox" ${f.repCategories.includes(c)?'checked':''} onchange="toggleReportCategory('${esc(c).replace(/'/g,"\\'")}', this.checked)"> ${esc(c)}
+      </label>`).join('')}
+    </div>
+    <p class="helptext" style="margin-top:10px;${noneSelected?'color:var(--rust);':''}">${
+      noneSelected ? 'No categories selected — every report below is empty. Click "Select all categories" to generate a full report again.' :
+      allSelected ? 'All categories selected — reports below cover the entire inventory.' :
+      f.repCategories.length+' of '+CATEGORIES.length+' categories selected.'
+    }</p>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Country</h2><span class="hint">Applies to every report below</span></div>
+    <div class="filters">
+      <select onchange="APP.filters.repCountry=this.value; renderMain();">
+        <option value="">All countries</option>
+        ${reportCountries.map(c=>`<option value="${esc(c)}" ${f.repCountry===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      ${f.repCountry ? `<button class="btn btn-ghost btn-sm" onclick="APP.filters.repCountry=''; renderMain();">Clear</button>` : ''}
+    </div>
+    <p class="helptext" style="margin-top:10px;">${
+      reportCountries.length===0 ? 'No batches have a country of origin recorded yet — add one when receiving material.' :
+      f.repCountry ? 'Showing reports for '+esc(f.repCountry)+' only.' : 'Showing reports for all countries. Pick one to generate a country-wise report.'
+    }</p>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Date range</h2><span class="hint">Applies to Receiving &amp; Issue reports below</span></div>
+    <div class="filters">
+      <input type="date" value="${from}" onchange="APP.filters.repFrom=this.value; renderMain();"> <span style="align-self:center;color:var(--ink-faint);">to</span>
+      <input type="date" value="${to}" onchange="APP.filters.repTo=this.value; renderMain();">
+      <button class="btn btn-ghost btn-sm" onclick="APP.filters.repFrom='';APP.filters.repTo=''; renderMain();">Clear range</button>
+    </div>
+  </div>
+
+  <div class="grid kpi-row">
+    ${kpiCard('Stock Value (current)', fmtMoney(totalStockValue), APP.batches.length+' batches on record')}
+    ${kpiCard('Received in range', fmtNum(recvRolls,0)+' rolls', fmtNum(recvMeters,1)+' m · '+fmtMoney(recvCost))}
+    ${kpiCard('Issued in range', fmtNum(issMeters,1)+' m', fmtMoney(issCost)+' · '+fmtNum(issGarments,0)+' garments')}
+    ${kpiCard('Low / Out of stock', lowRows.length+outRows.length, lowRows.length+' low, '+outRows.length+' out', (lowRows.length+outRows.length)>0)}
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Stock valuation by category</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportStockValuationCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Category</th><th class="num">Remaining rolls</th><th class="num">Remaining meters</th><th class="num">Remaining weight</th><th class="num">Stock value</th></tr></thead>
+    <tbody>${Object.entries(byCat).length===0?`<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:20px;">No stock yet.</td></tr>`:
+      Object.entries(byCat).sort((a,b)=>b[1].value-a[1].value).map(([c,v])=>`<tr><td>${esc(c)}</td><td class="num">${fmtNum(v.rolls,0)}</td><td class="num">${fmtNum(v.meters,1)}</td><td class="num">${v.weight>0?fmtNum(v.weight,1)+' kg':'—'}</td><td class="num">${fmtMoney(v.value)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Stock valuation by country</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportStockValuationByCountryCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Country</th><th class="num">Remaining rolls</th><th class="num">Remaining meters</th><th class="num">Remaining weight</th><th class="num">Stock value</th></tr></thead>
+    <tbody>${Object.entries(byCountry).length===0?`<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:20px;">No stock yet.</td></tr>`:
+      Object.entries(byCountry).sort((a,b)=>b[1].value-a[1].value).map(([c,v])=>`<tr><td>${esc(c)}</td><td class="num">${fmtNum(v.rolls,0)}</td><td class="num">${fmtNum(v.meters,1)}</td><td class="num">${v.weight>0?fmtNum(v.weight,1)+' kg':'—'}</td><td class="num">${fmtMoney(v.value)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Receiving report</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportReceivingCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Batch</th><th>Date</th><th>Material</th><th class="num">GSM</th><th>Supplier</th><th>Country</th><th class="num">Rolls</th><th class="num">Meters</th><th class="num">Weight</th><th class="num">Cost</th></tr></thead>
+    <tbody>${receipts.length===0?`<tr><td colspan="10" style="text-align:center;color:var(--ink-faint);padding:20px;">No receipts in range.</td></tr>`:
+      receipts.sort((a,b)=>b.date.localeCompare(a.date)).map(b=>`<tr><td class="id">${b.id}</td><td>${fmtDate(b.date)}</td><td>${esc(b.materialType)}</td><td class="num">${b.gsm!=null?fmtNum(b.gsm,0):'—'}</td><td>${esc(supplierName(b.supplierId))}</td><td>${b.country?esc(b.country):'—'}</td><td class="num">${b.totalRolls}</td><td class="num">${fmtNum(b.totalLength,1)}</td><td class="num">${b.totalWeight?fmtNum(b.totalWeight,1)+' kg':'—'}</td><td class="num">${fmtMoney(b.totalCost)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Issue / usage report</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportIssueCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Issue</th><th>Date</th><th>Batch</th><th>Garment</th><th class="num">Qty</th><th class="num">Meters</th><th class="num">Cost</th><th>Party</th><th></th></tr></thead>
+    <tbody>${issuesInRange.length===0?`<tr><td colspan="9" style="text-align:center;color:var(--ink-faint);padding:20px;">No issues in range.</td></tr>`:
+      issuesInRange.sort((a,b)=>b.date.localeCompare(a.date)).map(i=>`<tr><td class="id">${i.id}</td><td>${fmtDate(i.date)}</td><td class="id">${i.batchId}</td><td>${esc(i.garmentName)}${i.styleNo?' ('+esc(i.styleNo)+')':''}</td><td class="num">${fmtNum(i.qtyGarments,0)}</td><td class="num">${fmtNum(i.metersIssued,1)}</td><td class="num">${fmtMoney(i.costOfMaterial)}</td><td>${esc(supplierName(i.partyId))}</td><td><div style="display:flex;gap:5px;"><button class="btn-icon" title="Edit issue" onclick="openIssueModal('${i.id}')">${icon('edit',14)}</button>${(APP.currentUser && APP.currentUser.role==='admin') ? `<button class="btn-icon" title="Delete issue" onclick="deleteIssue('${i.id}')">${icon('trash',14)}</button>` : ''}</div></td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Supplier summary</h2>
+      <button class="btn btn-ghost btn-sm" onclick="exportSupplierCSV()">${icon('download',13)} Export CSV</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Supplier</th><th>Type</th><th class="num">Batches</th><th class="num">Material value</th><th class="num">Issues</th><th class="num">Issue value</th></tr></thead>
+    <tbody>${supplierRows.length===0?`<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:20px;">No supplier activity yet.</td></tr>`:
+      supplierRows.map(r=>`<tr><td>${esc(r.s.name)}</td><td><span class="badge badge-grey">${r.s.type}</span></td><td class="num">${r.batchCount}</td><td class="num">${fmtMoney(r.batchValue)}</td><td class="num">${r.issueCount}</td><td class="num">${fmtMoney(r.issueValue)}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>
+
+  <div class="card section">
+    <div class="section-head"><h2>Low &amp; out of stock</h2></div>
+    <div class="table-wrap"><table><thead><tr><th>Batch</th><th>Material</th><th class="num">Remaining</th><th>Status</th></tr></thead>
+    <tbody>${(lowRows.length+outRows.length)===0?`<tr><td colspan="4" style="text-align:center;color:var(--ink-faint);padding:20px;">All clear — nothing low or out.</td></tr>`:
+      [...outRows,...lowRows].map(b=>{const st=stockStatus(b); return `<tr><td class="id">${b.id}</td><td>${esc(b.materialType)} — ${esc(b.color)}</td><td class="num">${fmtNum(b.remainingMeters,1)} m</td><td><span class="badge ${st.cls}">${st.label}</span></td></tr>`;}).join('')}
+    </tbody></table></div>
+  </div>
+  `;
+}
+function currentReportRange(){
+  const f = APP.filters;
+  const inRange = (d) => (!f.repFrom || d>=f.repFrom) && (!f.repTo || d<=f.repTo);
+  return inRange;
+}
+function exportStockValuationCSV(){
+  const byCat = {};
+  APP.batches.filter(b=>categoryAllowed(b.category) && countryAllowed(b.country)).forEach(b=>{ byCat[b.category]=byCat[b.category]||{rolls:0,meters:0,weight:0,value:0}; byCat[b.category].rolls+=b.remainingRolls; byCat[b.category].meters+=b.remainingMeters; byCat[b.category].weight+=(b.remainingWeight||0); byCat[b.category].value+=stockValue(b); });
+  const rows = [['Category','Remaining Rolls','Remaining Meters','Remaining Weight (kg)','Stock Value (Rs.)']];
+  Object.entries(byCat).forEach(([c,v])=>rows.push([c, v.rolls, v.meters.toFixed(1), v.weight.toFixed(1), v.value.toFixed(2)]));
+  exportCSV('stock_valuation.csv', rows);
+}
+function exportStockValuationByCountryCSV(){
+  const byCountry = {};
+  APP.batches.filter(b=>categoryAllowed(b.category) && countryAllowed(b.country)).forEach(b=>{ const key=b.country||'Unspecified'; byCountry[key]=byCountry[key]||{rolls:0,meters:0,weight:0,value:0}; byCountry[key].rolls+=b.remainingRolls; byCountry[key].meters+=b.remainingMeters; byCountry[key].weight+=(b.remainingWeight||0); byCountry[key].value+=stockValue(b); });
+  const rows = [['Country','Remaining Rolls','Remaining Meters','Remaining Weight (kg)','Stock Value (Rs.)']];
+  Object.entries(byCountry).forEach(([c,v])=>rows.push([c, v.rolls, v.meters.toFixed(1), v.weight.toFixed(1), v.value.toFixed(2)]));
+  exportCSV('stock_valuation_by_country.csv', rows);
+}
+function exportReceivingCSV(){
+  const inRange = currentReportRange();
+  const rows = [['Batch ID','Date','Source','Country','Supplier','Material','Category','Design No','Color','Design','GSM','Rolls','Roll Numbers','Total Length','Length Unit','Weight (kg)','Unit Price','Total Cost']];
+  APP.batches.filter(b=>inRange(b.date) && categoryAllowed(b.category) && countryAllowed(b.country)).forEach(b=>{
+    const unit = batchUnit(b);
+    const rollNos = (b.rollDetails||[]).map(r=>r.no).join('; ');
+    rows.push([b.id, b.date, b.source, b.country||'', supplierName(b.supplierId), b.materialType, b.category, b.designNo||'', b.color, b.design||'', b.gsm!=null?b.gsm:'', b.totalRolls, rollNos, fromMeters(b.totalLength,unit).toFixed(1), unit, b.totalWeight?b.totalWeight.toFixed(1):'', batchUnitPrice(b).toFixed(2), b.totalCost.toFixed(2)]);
+  });
+  exportCSV('receiving_report.csv', rows);
+}
+function exportIssueCSV(){
+  const inRange = currentReportRange();
+  const rows = [['Issue ID','Date','Batch','Garment','Style No','Qty Garments','Meters Issued','Cost','Party']];
+  APP.issues.filter(i=>{
+    if(!inRange(i.date)) return false;
+    const b = batchById(i.batchId);
+    return b ? (categoryAllowed(b.category) && countryAllowed(b.country)) : true;
+  }).forEach(i=>{
+    rows.push([i.id, i.date, i.batchId, i.garmentName, i.styleNo, i.qtyGarments, i.metersIssued.toFixed(1), i.costOfMaterial.toFixed(2), supplierName(i.partyId)]);
+  });
+  exportCSV('issue_report.csv', rows);
+}
+function exportSupplierCSV(){
+  const rows = [['Supplier','Type','Batches Supplied','Material Value','Garments Issued To','Issue Value']];
+  APP.suppliers.forEach(s=>{
+    const sb = APP.batches.filter(b=>b.supplierId===s.id && categoryAllowed(b.category) && countryAllowed(b.country));
+    const si = APP.issues.filter(i=>{
+      if(i.partyId!==s.id) return false;
+      const b = batchById(i.batchId);
+      return b ? (categoryAllowed(b.category) && countryAllowed(b.country)) : true;
+    });
+    if(sb.length===0 && si.length===0) return;
+    rows.push([s.name, s.type, sb.length, sb.reduce((x,b)=>x+b.totalCost,0).toFixed(2), si.length, si.reduce((x,i)=>x+i.costOfMaterial,0).toFixed(2)]);
+  });
+  exportCSV('supplier_summary.csv', rows);
+}
+function exportCSV(filename, rows){
+  const csv = rows.map(r=>r.map(cell=>{
+    const v = (cell==null?'':String(cell));
+    return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+  }).join(',')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   TRACK / LOOKUP
+   ============================================================ */
+function renderLookupPage(){
+  const id = APP.prefillBatchId || '';
+  return `
+  <div class="card section">
+    <div class="section-head"><h2>Find a batch</h2><span class="hint">Type or paste the Batch ID printed on the roll tag</span></div>
+    <div class="filters">
+      <input type="text" id="lk_input" placeholder="e.g. GRN-2026-0001" value="${esc(id)}" style="min-width:260px;" onkeydown="if(event.key==='Enter') runLookup();">
+      <button class="btn btn-primary" onclick="runLookup()">${icon('search',14)} Track</button>
+    </div>
+    <p class="helptext">Scanning the printed QR tag with any phone camera shows the batch's key details as plain text. Enter the Batch ID shown there to pull up live, current stock here.</p>
+  </div>
+  <div id="lk_result">${id ? lookupResultHTML(id) : ''}</div>
+  ${APP.batches.length>0 ? `
+  <div class="card section">
+    <div class="section-head"><h2>All batches</h2></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${APP.batches.map(b=>`<button class="btn btn-ghost btn-sm" onclick="document.getElementById('lk_input').value='${b.id}'; runLookup();">${b.id}</button>`).join('')}
+    </div>
+  </div>` : ''}
+  `;
+}
+function runLookup(){
+  const v = document.getElementById('lk_input').value.trim();
+  document.getElementById('lk_result').innerHTML = v ? lookupResultHTML(v) : '';
+}
+function materialDetailGridHTML(b){
+  const unit = batchUnit(b);
+  return `
+    <div class="form-grid">
+      <div class="field"><label>Material</label><div class="readout" style="font-weight:500;">${esc(b.materialType)}</div></div>
+      <div class="field"><label>Category</label><div class="readout" style="font-weight:500;">${esc(b.category)}</div></div>
+      <div class="field"><label>Color / Design</label><div class="readout" style="font-weight:500;">${esc(b.color)}${b.design?' · '+esc(b.design):''}</div></div>
+      <div class="field"><label>Design number</label><div class="readout" style="font-weight:500;">${esc(b.designNo||'—')}</div></div>
+      <div class="field"><label>Quality / Variety</label><div class="readout" style="font-weight:500;">${esc(b.quality||'—')}</div></div>
+      <div class="field"><label>GSM</label><div class="readout" style="font-weight:500;">${b.gsm!=null?fmtNum(b.gsm,0)+' g/m²':'—'}</div></div>
+      <div class="field"><label>Supplier</label><div class="readout" style="font-weight:500;">${esc(supplierName(b.supplierId))}</div></div>
+      <div class="field"><label>Source</label><div class="readout" style="font-weight:500;">${b.source}</div></div>
+      <div class="field"><label>Country of origin</label><div class="readout" style="font-weight:500;">${esc(b.country||'—')}</div></div>
+      <div class="field"><label>Received</label><div class="readout" style="font-weight:500;">${fmtDate(b.date)}</div></div>
+      <div class="field"><label>Invoice ref.</label><div class="readout" style="font-weight:500;">${esc(b.invoiceNo||'—')}</div></div>
+      <div class="field"><label>Rolls (remaining / total)</label><div class="readout">${fmtNum(b.remainingRolls,0)} / ${fmtNum(b.totalRolls,0)}</div></div>
+      <div class="field"><label>Length (remaining / total)</label><div class="readout">${fmtNum(fromMeters(b.remainingMeters,unit),1)} / ${fmtNum(fromMeters(b.totalLength,unit),1)} ${unit}${unit!=='m'?` <span style="color:var(--ink-faint);">(${fmtNum(b.remainingMeters,1)} / ${fmtNum(b.totalLength,1)} m)</span>`:''}</div></div>
+      <div class="field"><label>Weight (remaining / total)</label><div class="readout">${b.totalWeight?fmtNum(b.remainingWeight,1)+' / '+fmtNum(b.totalWeight,1)+' kg':'—'}</div></div>
+      <div class="field"><label>Unit price</label><div class="readout">${fmtUnitPrice(b)}</div></div>
+      <div class="field"><label>Total cost</label><div class="readout">${fmtMoney(b.totalCost)}</div></div>
+      <div class="field"><label>Current stock value</label><div class="readout">${fmtMoney(stockValue(b))}</div></div>
+    </div>
+    ${rollDetailsTableHTML(b)}
+    ${b.materialGuess?`<div class="helptext" style="margin-top:10px;"><strong>AI material identification:</strong> ${esc(b.materialGuess).replace(/\n/g,'<br>')}</div>`:''}
+    ${b.photoDataUrl?`<div style="margin-top:12px;"><img src="${b.photoDataUrl}" style="max-width:220px;max-height:220px;border-radius:8px;border:1px solid var(--line);object-fit:cover;"></div>`:''}
+    ${b.notes?`<p class="helptext" style="margin-top:10px;">Note: ${esc(b.notes)}</p>`:''}
+  `;
+}
+function rollDetailsTableHTML(b){
+  const list = b.rollDetails;
+  if(!list || list.length===0) return '';
+  const unit = batchUnit(b);
+  return `
+    <div style="margin-top:14px;">
+      <label style="font-size:12px;font-weight:600;color:var(--ink-soft);">Rolls in this batch</label>
+      <div class="table-wrap" style="margin-top:6px;">
+        <table>
+          <thead><tr><th>Roll number</th><th class="num">Length</th></tr></thead>
+          <tbody>
+            ${list.map(r=>`<tr><td class="id">${esc(r.no)}</td><td class="num">${fmtNum(r.lengthInUnit,2)} ${unit}${unit!=='m'?` <span style="color:var(--ink-faint);">(${fmtNum(r.lengthMeters,2)} m)</span>`:''}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+function lookupResultHTML(id){
+  const b = batchById(id);
+  if(!b){
+    return `<div class="card empty">${emptyIcon('search')}<h3>No batch found for "${esc(id)}"</h3><p>Check the ID and try again.</p></div>`;
+  }
+  const st = stockStatus(b);
+  const relatedIssues = APP.issues.filter(i=>i.batchId===b.id).sort((a,b2)=>b2.createdAt-a.createdAt);
+  return `
+  <div class="card section">
+    <div class="section-head">
+      <h2><span class="mono">${b.id}</span></h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="badge ${st.cls}">${st.label}</span>
+        <button class="btn btn-ghost btn-sm" onclick="generateBatchPDF('${b.id}')">${icon('printer',13)} Download PDF</button>
+        <button class="btn btn-amber btn-sm" onclick="openPrintTag('${b.id}')">${icon('printer',13)} Print tag</button>
+        ${(APP.currentUser && APP.currentUser.role==='admin') ? `
+        <button class="btn btn-ghost btn-sm" onclick="openBatchEditModal('${b.id}')">${icon('edit',13)} Edit GRN</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteBatch('${b.id}')">${icon('trash',13)} Delete GRN</button>` : ''}
+      </div>
+    </div>
+    ${materialDetailGridHTML(b)}
+  </div>
+  <div class="card section">
+    <div class="section-head"><h2>Issue history for this batch</h2></div>
+    ${relatedIssues.length===0?`<p class="hint">No material from this batch has been issued yet.</p>`:`
+    <div class="table-wrap"><table><thead><tr><th>Issue</th><th>Date</th><th>Garment</th><th class="num">Meters</th><th class="num">Cost</th><th>Party</th><th></th></tr></thead>
+    <tbody>${relatedIssues.map(i=>`<tr><td class="id">${i.id}</td><td>${fmtDate(i.date)}</td><td>${esc(i.garmentName)}${i.styleNo?' ('+esc(i.styleNo)+')':''}</td><td class="num">${fmtNum(i.metersIssued,1)}</td><td class="num">${fmtMoney(i.costOfMaterial)}</td><td>${esc(supplierName(i.partyId))}</td><td><div style="display:flex;gap:5px;"><button class="btn-icon" title="Edit issue" onclick="openIssueModal('${i.id}')">${icon('edit',14)}</button>${(APP.currentUser && APP.currentUser.role==='admin') ? `<button class="btn-icon" title="Delete issue" onclick="deleteIssue('${i.id}')">${icon('trash',14)}</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>`}
+  </div>
+  `;
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function renderSettingsPage(){
+  const isAdmin = APP.currentUser && APP.currentUser.role==='admin';
+  return `
+  <div class="card section" style="max-width:540px;">
+    <div class="section-head"><h2>Data storage</h2></div>
+    <p class="helptext">Current mode: <strong>${esc(storageModeLabel())}</strong></p>
+    ${hasFirebaseConfig ? `<div class="form-actions" style="margin-top:10px;"><button type="button" class="btn btn-ghost btn-sm" onclick="testBackendConnection()">${icon('lock',13)} Test Firebase connection</button></div>` :
+      `<p class="helptext" style="margin-top:8px;">Not connected to a shared backend yet — each device/browser keeps its own separate data. To share data across every computer/phone, set up Firebase and paste your config near the top of the script (see the setup guide).</p>`}
+  </div>
+  <div class="card section" style="max-width:540px;">
+    <div class="section-head"><h2>Store settings</h2></div>
+    <form onsubmit="return saveSettings(event)">
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="field"><label>Store name</label><input id="st_name" value="${esc(APP.storeName)}" required></div>
+        <div class="field"><label>Low stock alert threshold (meters remaining)</label><input type="number" min="0" step="1" id="st_low" value="${APP.lowStockThreshold}"></div>
+      </div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save settings</button></div>
+    </form>
+  </div>
+  <div class="card section" style="max-width:540px;">
+    <div class="section-head"><h2>About accounts &amp; data</h2></div>
+    <p class="helptext">Sign-in is username &amp; password only. Accounts aren't created from within the app — add or edit users directly in the database.</p>
+    <p class="helptext" style="margin-top:8px;">That said, this app has no real backend server. Inside Claude.ai, data (including password hashes) lives in storage shared with anyone who has the chat's link. Hosted standalone on your own domain, data is saved to each device's browser (localStorage) instead — it isn't shared between different computers or phones. Either way it keeps casual access out and separates who-did-what, but it isn't bank-grade security. For a shared, multi-device inventory with real security, you'd want a proper backend with server-side authentication and a database.</p>
+    <p class="helptext" style="margin-top:8px;">Currency is fixed to Sri Lankan Rupees (Rs.) throughout.</p>
+  </div>
+  `;
+}
+async function saveSettings(ev){
+  ev.preventDefault();
+  APP.storeName = document.getElementById('st_name').value.trim() || APP.storeName;
+  APP.lowStockThreshold = num(document.getElementById('st_low').value);
+  await saveMeta();
+  toast('Settings saved.','ok');
+  renderShell();
+  return false;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+function openModal(innerHTML){
+  document.getElementById('modal-root').innerHTML = `<div class="modal-overlay" onmousedown="if(event.target===this) closeModal()"><div class="modal-panel">${innerHTML}</div></div>`;
+}
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+/* ============================================================
+   QR TAG / PRINT
+   ============================================================ */
+function buildScanUrl(batchId){
+  const base = (location.origin && location.origin !== 'null') ? (location.origin + location.pathname) : location.href.split('?')[0];
+  return base + '?scan=' + encodeURIComponent(batchId);
+}
+function qrToPngDataUrl(text, scale){
+  scale = scale || 6;
+  if(typeof qrcode === 'undefined') return null;
+  try{
+    const qr = qrcode(0,'M');
+    qr.addData(text);
+    qr.make();
+    const count = qr.getModuleCount();
+    const margin = 2;
+    const size = (count+margin*2)*scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle = '#000';
+    for(let r=0;r<count;r++){
+      for(let c=0;c<count;c++){
+        if(qr.isDark(r,c)) ctx.fillRect((c+margin)*scale, (r+margin)*scale, scale, scale);
+      }
+    }
+    return canvas.toDataURL('image/png');
+  }catch(e){ return null; }
+}
+function buildQRMarkup(text, cellSize){
+  if(typeof qrcode === 'undefined'){
+    return `<div style="width:150px;height:150px;display:flex;align-items:center;justify-content:center;border:1px dashed #D4D4D8;font-size:10px;text-align:center;color:#9A9AA2;">QR unavailable — batch ID: ${esc(text.split('\n')[0])}</div>`;
+  }
+  try{
+    const qr = qrcode(0,'M');
+    qr.addData(text);
+    qr.make();
+    return qr.createSvgTag({cellSize: cellSize||5, margin:2});
+  }catch(e){
+    return `<div style="font-size:10px;color:#9A9AA2;">QR generation failed</div>`;
+  }
+}
+function tagQRText(b){
+  /* QR encodes a link back into this app pre-filled with the batch ID, so
+     scanning it with any phone camera opens a focused scan page — sign-in
+     required, then only that batch's material detail and an Issue to
+     Garments form for it, not the full app. */
+  return buildScanUrl(b.id);
+}
+function swingTagHTML(b, qrMarkup){
+  const unit = batchUnit(b);
+  return `
+  <div class="swing-tag">
+    <div class="t-store">${esc(APP.storeName)}</div>
+    <div class="t-qr">${qrMarkup}</div>
+    <div class="t-id">${b.id}</div>
+    <div class="t-divider"></div>
+    <div class="t-row"><span>Material</span><span>${esc(b.materialType)}</span></div>
+    <div class="t-row"><span>Color</span><span>${esc(b.color)}</span></div>
+    ${b.design?`<div class="t-row"><span>Design</span><span>${esc(b.design)}</span></div>`:''}
+    ${b.designNo?`<div class="t-row"><span>Design no.</span><span>${esc(b.designNo)}</span></div>`:''}
+    ${b.quality?`<div class="t-row"><span>Quality</span><span>${esc(b.quality)}</span></div>`:''}
+    ${b.gsm!=null?`<div class="t-row"><span>GSM</span><span>${fmtNum(b.gsm,0)} g/m²</span></div>`:''}
+    <div class="t-row"><span>Rolls</span><span>${b.totalRolls} x ${fmtNum(fromMeters(b.meterPerRoll,unit),1)}${unit}</span></div>
+    <div class="t-row"><span>Total length</span><span>${fmtLengthTotal(b)}</span></div>
+    <div class="t-row"><span>Unit price</span><span>${fmtUnitPrice(b)}</span></div>
+    ${b.weightPerRoll?`<div class="t-row"><span>Weight</span><span>${fmtNum(b.weightPerRoll,1)} kg/roll</span></div>`:''}
+    <div class="t-row"><span>Supplier</span><span>${esc(supplierName(b.supplierId))}</span></div>
+    <div class="t-row"><span>Received</span><span>${fmtDate(b.date)}</span></div>
+  </div>`;
+}
+function openPrintTag(batchId){
+  const b = batchById(batchId);
+  if(!b) return;
+  const qrMarkup = buildQRMarkup(tagQRText(b), 5);
+  openModal(`
+    <div class="modal-head"><h3>Roll tag — ${b.id}</h3><button class="btn-icon" onclick="closeModal()">${icon('close',16)}</button></div>
+    <div class="modal-body">
+      <div class="tag-wrap">${swingTagHTML(b, qrMarkup)}</div>
+      <div class="form-grid" style="grid-template-columns:1fr auto;align-items:end;margin-top:14px;">
+        <div class="field"><label>Number of copies to print</label><input type="number" min="1" step="1" id="pt_copies" value="${b.totalRolls}"></div>
+        <button class="btn btn-primary" onclick="doPrintTags('${b.id}')">${icon('printer',15)} Print</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="generateBatchPDF('${b.id}')">${icon('printer',13)} Download full detail sheet (PDF)</button>
+      <p class="helptext" style="margin-top:10px;">Scanning the QR with any phone camera opens a focused sign-in page for this batch — after logging in it shows only this batch's material detail and an Issue to Garments form (works once this app is opened via its shared link). Staff can also look up "${b.id}" under Track / Lookup for live remaining stock.</p>
+    </div>
+  `);
+}
+function doPrintTags(batchId){
+  const b = batchById(batchId);
+  if(!b) return;
+  const copies = Math.max(1, num(document.getElementById('pt_copies').value));
+  const qrMarkup = buildQRMarkup(tagQRText(b), 5);
+  let html = '<div class="print-tag-page">';
+  for(let i=0;i<copies;i++){ html += swingTagHTML(b, qrMarkup); }
+  html += '</div>';
+  document.getElementById('print-area').innerHTML = html;
+  setTimeout(()=>window.print(), 80);
+}
+
+/* ============================================================
+   PDF DETAIL SHEET — generated when a roll's QR tag is scanned
+   ============================================================ */
+function generateBatchPDF(batchId){
+  const b = batchById(batchId);
+  if(!b){ toast('Batch not found.','err'); return; }
+  if(typeof window.jspdf === 'undefined'){ toast('PDF library failed to load — check your connection.','err'); return; }
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const unit = batchUnit(b);
+    let y = 18;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text(APP.storeName || 'NDS Material', 14, y);
+    y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(110);
+    doc.text('Batch detail sheet', 14, y);
+    doc.setTextColor(0);
+
+    try{
+      const qrData = qrToPngDataUrl(buildScanUrl(b.id), 6);
+      if(qrData) doc.addImage(qrData, 'PNG', pageW-46, 12, 30, 30);
+    }catch(e){}
+
+    y += 10;
+    doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(b.id, 14, y);
+    y += 9;
+
+    const lenInUnit = fromMeters(b.totalLength||0, unit);
+    const remInUnit = fromMeters(b.remainingMeters||0, unit);
+    const lprInUnit = fromMeters(b.meterPerRoll||0, unit);
+
+    const rows = [
+      ['Material', b.materialType||'—'],
+      ['Category', b.category||'—'],
+      ['Color / Design', b.color + (b.design ? ' / '+b.design : '')],
+      ['Design number', b.designNo||'—'],
+      ['Quality / Variety', b.quality||'—'],
+      ['GSM', b.gsm!=null ? fmtNum(b.gsm,0)+' g/m²' : '—'],
+      ['Supplier', supplierName(b.supplierId)],
+      ['Source', b.source||'—'],
+      ['Country of origin', b.country||'—'],
+      ['Date received', fmtDate(b.date)],
+      ['Invoice ref.', b.invoiceNo||'—'],
+      ['Rolls (remaining / total)', fmtNum(b.remainingRolls,0)+' / '+fmtNum(b.totalRolls,0)],
+      ['Length per roll', fmtNum(lprInUnit,2)+' '+unit],
+      ['Total length', fmtNum(lenInUnit,2)+' '+unit + (unit!=='m' ? '  ('+fmtNum(b.totalLength,2)+' m)' : '')],
+      ['Remaining length', fmtNum(remInUnit,2)+' '+unit + (unit!=='m' ? '  ('+fmtNum(b.remainingMeters,2)+' m)' : '')],
+      ['Weight (remaining / total)', b.totalWeight ? fmtNum(b.remainingWeight,1)+' / '+fmtNum(b.totalWeight,1)+' kg' : '—'],
+      ['Unit price', fmtUnitPrice(b)],
+      ['Total cost', fmtMoney(b.totalCost)],
+      ['Current stock value', fmtMoney(stockValue(b))]
+    ];
+    if(b.materialGuess) rows.push(['AI material identification', b.materialGuess]);
+    if(b.notes) rows.push(['Notes', b.notes]);
+
+    doc.setFontSize(10.5);
+    rows.forEach(([label,val])=>{
+      if(y > 272){ doc.addPage(); y = 18; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(100);
+      doc.text(String(label), 14, y);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(20);
+      const lines = doc.splitTextToSize(String(val), pageW-88);
+      doc.text(lines, 72, y);
+      y += 5.6*Math.max(1,lines.length) + 2;
+    });
+
+    if(b.rollDetails && b.rollDetails.length>0){
+      if(y > 240){ doc.addPage(); y = 18; }
+      y += 3;
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(100);
+      doc.text('Rolls in this batch', 14, y);
+      y += 5.5;
+      doc.setFontSize(9);
+      b.rollDetails.forEach(r=>{
+        if(y > 285){ doc.addPage(); y = 18; }
+        doc.setFont('helvetica','bold'); doc.setTextColor(20);
+        doc.text(String(r.no), 16, y);
+        doc.setFont('helvetica','normal'); doc.setTextColor(60);
+        doc.text(fmtNum(r.lengthInUnit,2)+' '+unit, 72, y);
+        y += 5;
+      });
+      y += 3;
+    }
+
+    if(b.photoDataUrl){
+      if(y > 220){ doc.addPage(); y = 18; }
+      y += 4;
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(100);
+      doc.text('Material photo', 14, y);
+      y += 4;
+      try{
+        const fmt = b.photoDataUrl.indexOf('image/png')>-1 ? 'PNG' : 'JPEG';
+        doc.addImage(b.photoDataUrl, fmt, 14, y, 60, 60);
+        y += 64;
+      }catch(e){}
+    }
+
+    doc.setFontSize(8); doc.setTextColor(150);
+    doc.text('Generated '+new Date().toLocaleString()+' · Scan the QR code or visit Track / Lookup in NDS Material for live remaining stock.', 14, 290);
+
+    doc.save(b.id+'.pdf');
+  }catch(e){
+    toast('Could not generate PDF.', 'err');
+  }
+}
+
+/* ============================================================
+   AUTH — first-run admin setup, login, logout
+   ============================================================ */
+function authBrandHTML(){
+  return `
+    <div class="auth-brand">
+      <svg class="mark" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#DC2626" stroke-width="2"/><path d="M16 4v24M6 9l20 14M26 9 6 23" stroke="#DC2626" stroke-width="1.3" opacity=".55"/><circle cx="16" cy="16" r="4.5" fill="#DC2626"/></svg>
+      <div class="name">NDS Material</div>
+      <div class="tag">Material &amp; Garment Inventory</div>
+    </div>`;
+}
+function showAuthScreen(html){
+  document.getElementById('shell').style.display='none';
+  const el = document.getElementById('auth-screen');
+  el.innerHTML = `<div class="auth-card">${authBrandHTML()}${html}</div>`;
+  el.style.display='flex';
+}
+function hideAuthScreen(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('auth-screen').innerHTML='';
+}
+
+/* ---------- routes to the scanned batch's focused scan screen (from a QR ?scan=...) right after sign-in, else dashboard ---------- */
+function afterAuthRoute(){
+  if(APP.scanMode && APP.scanBatchId){
+    if(batchById(APP.scanBatchId)){
+      renderScanScreen(APP.scanBatchId);
+      return;
+    }
+    toast('Scanned batch "'+APP.scanBatchId+'" was not found.', 'err');
+    APP.scanMode = false; APP.scanBatchId = null;
+  }
+  setRoute('dashboard');
+}
+function renderLoginScreen(prefillErr){
+  const scanMode = !!(APP.scanMode && APP.scanBatchId);
+  showAuthScreen(`
+    <h2>Sign in</h2>
+    <p class="sub">${scanMode ? `Scanned batch <strong class="mono">${esc(APP.scanBatchId)}</strong> — sign in with your username and password to view its material detail and issue material to garments.` : 'Enter your NDS Material username and password.'}</p>
+    <div id="auth-err">${prefillErr?`<div class="errbox">${esc(prefillErr)}</div>`:''}</div>
+    <form onsubmit="return handleLoginSubmit(event)">
+      <div class="field"><label>Username</label><input id="lg_username" required autofocus></div>
+      <div class="field"><label>Password</label><input type="password" id="lg_password" required></div>
+      <button type="submit" class="btn btn-primary">${icon('lock',15)} Sign in</button>
+    </form>
+    <p class="auth-foot">Forgot your password? Ask an admin to reset it from the Users page.</p>
+  `);
+}
+async function handleLoginSubmit(ev){
+  ev.preventDefault();
+  const username = document.getElementById('lg_username').value.trim().toLowerCase();
+  const password = document.getElementById('lg_password').value;
+  const u = APP.users.find(x=>x.username===username);
+  const errBox = document.getElementById('auth-err');
+  if(!u || !u.active){ errBox.innerHTML='<div class="errbox">Incorrect username or password.</div>'; return false; }
+  const hash = await hashPassword(password, u.salt);
+  if(hash !== u.passwordHash){ errBox.innerHTML='<div class="errbox">Incorrect username or password.</div>'; return false; }
+  APP.currentUser = u;
+  await saveSession(u.id);
+  hideAuthScreen();
+  afterAuthRoute();
+  return false;
+}
+async function logout(){
+  await clearSession();
+  APP.currentUser = null;
+  renderLoginScreen();
+}
+
+/* ============================================================
+   SCAN SCREEN — focused page opened by a QR scan (?scan=<batchId>).
+   Shows only this batch's material detail and an Issue to Garments
+   form, never the full app shell. Sign-in (username/password) is
+   required first via renderLoginScreen's scan-mode branch.
+   ============================================================ */
+function renderScanScreen(batchId){
+  document.getElementById('shell').style.display='none';
+  hideAuthScreen();
+  APP.scanMode = true;
+  APP.scanBatchId = batchId;
+  const scr = document.getElementById('scan-screen');
+  scr.style.display='block';
+
+  const b = batchById(batchId);
+  const userRow = `
+      <div class="scan-user">
+        <span class="chip">${icon('user',13)} ${esc(APP.currentUser.displayName)} <span class="role-badge ${APP.currentUser.role}" style="margin-left:6px;">${APP.currentUser.role}</span></span>
+        <button class="btn btn-ghost btn-sm" onclick="exitScanMode()">${icon('grid',13)} Open full app</button>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">${icon('logout',13)} Sign out</button>
+      </div>`;
+
+  if(!b){
+    scr.innerHTML = `
+      <header class="scan-topbar">
+        <div><p class="scan-eyebrow">Scanned batch</p><h1 class="scan-title">${esc(batchId)}</h1></div>
+        ${userRow}
+      </header>
+      <div class="scan-content">
+        <div class="card empty">${emptyIcon('search')}<h3>Batch not found</h3><p>"${esc(batchId)}" doesn't match a batch in the current data.</p></div>
+      </div>`;
+    return;
+  }
+
+  const st = stockStatus(b);
+  const available = isOut(b) ? [] : [b];
+  scr.innerHTML = `
+    <header class="scan-topbar">
+      <div><p class="scan-eyebrow">Scanned batch</p><h1 class="scan-title mono">${esc(b.id)}</h1></div>
+      ${userRow}
+    </header>
+    <div class="scan-content">
+      <div class="card section">
+        <div class="section-head">
+          <h2>${esc(b.materialType)} — ${esc(b.color)}</h2>
+          <span class="badge ${st.cls}">${st.label}</span>
+        </div>
+        ${materialDetailGridHTML(b)}
+      </div>
+      <div class="card section">
+        <div class="section-head"><h2>Issue to Garments</h2><span class="hint">Deducts straight from this batch's stock</span></div>
+        ${issueFormHTML(available, b.id)}
+      </div>
+    </div>`;
+  if(available.length>0) onIssueBatchChange();
+}
+function exitScanMode(){
+  APP.scanMode = false;
+  APP.scanBatchId = null;
+  APP.prefillBatchId = null;
+  const scr = document.getElementById('scan-screen');
+  scr.style.display='none';
+  scr.innerHTML='';
+  try{
+    const url = new URL(location.href);
+    url.searchParams.delete('scan');
+    url.searchParams.delete('batch');
+    url.searchParams.delete('pdf');
+    history.replaceState({}, '', url.toString());
+  }catch(e){ /* ignore */ }
+  setRoute('dashboard');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+async function init(){
+  await loadAll();
+  document.getElementById('loader').style.display='none';
+
+  try{
+    const params = new URLSearchParams(location.search);
+    const scannedBatch = params.get('scan') || params.get('batch'); // 'batch' kept for older printed tags
+    if(scannedBatch){ APP.scanMode = true; APP.scanBatchId = scannedBatch; }
+  }catch(e){ /* ignore malformed URL */ }
+
+  if(APP.scanMode && APP.scanBatchId){
+    // Opening a QR scan link always asks for a username/password sign-in, even on a
+    // device that already has a saved session — the tag may be scanned on a shared phone.
+    renderLoginScreen();
+    return;
+  }
+  const restored = await restoreSession();
+  if(restored){
+    afterAuthRoute();
+  } else {
+    renderLoginScreen();
+  }
+}
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
